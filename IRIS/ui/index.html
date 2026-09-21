@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KW Compare</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="KW Compare home">
+        <span class="brand-mark">KW</span>
+        <span>Compare</span>
+      </a>
+      <div class="connection-pill" id="connectionState"><span class="status-dot"></span>Ready</div>
+    </header>
+
+    <section class="auth-bar" aria-label="IRIS authentication">
+      <div>
+        <p class="section-kicker">Connection</p>
+        <strong>Authenticate with IRIS</strong>
+      </div>
+      <div class="auth-fields">
+        <label class="compact-field">
+          <span>Username</span>
+          <input id="username" name="username" autocomplete="username" required>
+        </label>
+        <label class="compact-field">
+          <span>Password</span>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <span class="auth-note">Used for this session only.</span>
+        <button class="refresh-button" id="refreshRuns" type="button">Load previous runs &#8595;</button>
+      </div>
+    </section>
+
+    <section class="workspace-panel" aria-label="Comparison controls">
+      <div class="panel-header">
+        <div>
+          <p class="section-kicker">New comparison</p>
+          <h2>Choose your source</h2>
+        </div>
+        <div class="mode-switch" role="tablist" aria-label="Comparison type">
+          <button class="mode-button active" data-mode="directories" role="tab" aria-selected="true">Directories</button>
+          <button class="mode-button" data-mode="files" role="tab" aria-selected="false">Files</button>
+        </div>
+      </div>
+
+      <form id="compareForm">
+        <div class="field-grid">
+          <label class="field field-wide">
+            <span id="sourceALabel">Source directory A</span>
+            <input id="sourceA" name="sourceA" required value="/itf-share/itf-tmp/KWCompare/Edifecs/A" autocomplete="off">
+          </label>
+          <label class="field field-wide">
+            <span id="sourceBLabel">Source directory B</span>
+            <input id="sourceB" name="sourceB" required value="/itf-share/itf-tmp/KWCompare/Edifecs/B" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Configuration ID</span>
+            <input id="configId" name="configId" type="number" min="0" value="0">
+          </label>
+          <label class="field">
+            <span>Comparison mode</span>
+            <select id="comparisonMode" name="comparisonMode">
+              <option value="LINE">Line by line</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-footer">
+          <label class="api-field">
+            <span>IRIS API base URL</span>
+            <input id="apiBase" name="apiBase" value="https://itf-webapache-dev.co.ihc.com:8443/KWCompare" autocomplete="url">
+          </label>
+          <button class="primary-button" type="submit"><span>Run comparison</span><span class="button-arrow">&#8594;</span></button>
+        </div>
+      </form>
+    </section>
+
+    <section class="results-section" aria-live="polite">
+      <div class="results-heading">
+        <div>
+          <p class="section-kicker">Latest activity</p>
+          <h2>Comparison results</h2>
+        </div>
+        <span class="result-count" id="resultCount">0 runs</span>
+      </div>
+      <div class="message" id="message" hidden></div>
+      <div class="results-table-wrap">
+        <table>
+          <thead>
+            <tr><th>File</th><th>Run ID</th><th>State</th><th class="align-right">Open</th></tr>
+          </thead>
+          <tbody id="resultsBody">
+            <tr class="empty-row"><td colspan="4"><span class="empty-icon">&#8722;</span><strong>No comparisons yet</strong><span>Run a comparison to see its matched files here.</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer"><span>KW Compare</span><span>IRIS backend</span></footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
