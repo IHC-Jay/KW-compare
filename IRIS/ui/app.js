@@ -15,6 +15,60 @@ const resultCount = $('#resultCount');
 const connectionState = $('#connectionState');
 const refreshRuns = $('#refreshRuns');
 
+function normalizeBaseUrl() {
+  return apiBase.value.trim().replace(/\/$/, '');
+}
+
+function hasCredentials() {
+  return username.value.trim() !== '' && password.value !== '';
+}
+
+function classifyFetchError(error) {
+  if (error && error.name === 'TypeError') {
+    return 'Connection blocked or unavailable. This is usually CORS or network access to the API host.';
+  }
+  return error?.message || 'Request failed.';
+}
+
+function getApiErrorMessage(status, data, fallbackMessage = 'Request failed') {
+  const payloadMessage = data?.error || data?.message;
+  if (payloadMessage) return payloadMessage;
+
+  if (status === 401) return 'Authentication failed (401). Check username and password.';
+  if (status === 403) return 'Access denied (403).';
+  if (status === 404) return 'API endpoint not found (404). Check the API base URL path.';
+  if (status >= 500) return `Server error (${status}).`;
+  return `${fallbackMessage} (${status})`;
+}
+
+async function checkApiHealth() {
+  if (!hasCredentials()) {
+    connectionState.innerHTML = '<span class="status-dot"></span>Credentials required';
+    return;
+  }
+  const base = normalizeBaseUrl();
+  const url = `${base}/runs`;
+  connectionState.innerHTML = '<span class="status-dot"></span>Checking';
+  try {
+    const response = await fetch(url, { headers: getAuthHeaders() });
+    if (response.ok) {
+      connectionState.innerHTML = '<span class="status-dot"></span>Connected';
+      return;
+    }
+    if (response.status === 401) {
+      connectionState.innerHTML = '<span class="status-dot"></span>Auth required';
+      return;
+    }
+    if (response.status === 404) {
+      connectionState.innerHTML = '<span class="status-dot"></span>Bad API URL';
+      return;
+    }
+    connectionState.innerHTML = `<span class="status-dot"></span>Error ${response.status}`;
+  } catch (error) {
+    connectionState.innerHTML = '<span class="status-dot"></span>CORS/Network';
+  }
+}
+
 function showMessage(text, type = 'error') {
   message.textContent = text;
   message.hidden = false;
@@ -29,15 +83,23 @@ function setBusy(busy) {
 }
 
 function getAuthHeaders() {
-  const credentials = `${username.value}:${password.value}`;
-  return {
+  const headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Basic ${btoa(credentials)}`,
   };
+  if (hasCredentials()) {
+    const credentials = `${username.value}:${password.value}`;
+    headers.Authorization = `Basic ${btoa(credentials)}`;
+  }
+  return headers;
 }
 
 async function loadPreviousRuns() {
-  const base = apiBase.value.trim().replace(/\/$/, '');
+  if (!hasCredentials()) {
+    showMessage('Enter username and password, then load previous runs.');
+    connectionState.innerHTML = '<span class="status-dot"></span>Credentials required';
+    return;
+  }
+  const base = normalizeBaseUrl();
   const url = `${base}/runs`;
   console.info('[KW Compare] Loading previous runs:', url);
   refreshRuns.disabled = true;
@@ -45,10 +107,14 @@ async function loadPreviousRuns() {
   try {
     const response = await fetch(url, { headers: getAuthHeaders() });
     console.info('[KW Compare] Previous runs response:', response.status, response.statusText);
-    if (response.status === 401) throw new Error('Authentication failed. Check the username and password.');
-    const data = await response.json();
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
     console.info('[KW Compare] Previous runs payload:', data);
-    if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`);
+    if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Previous runs request failed'));
     state.rows = (data.runs || []).map((row) => ({
       fileName: `${row.fileAName} vs ${row.fileBName}`,
       runID: row.runID,
@@ -57,11 +123,15 @@ async function loadPreviousRuns() {
     console.info('[KW Compare] Previous runs for table:', state.rows);
     renderRows();
     showMessage(`${state.rows.length} previous ${state.rows.length === 1 ? 'run was' : 'runs were'} loaded.`, 'success');
+    connectionState.innerHTML = '<span class="status-dot"></span>Connected';
   } catch (error) {
-    showMessage(error.message || 'Previous runs could not be loaded.');
+    showMessage(classifyFetchError(error));
+    connectionState.innerHTML = '<span class="status-dot"></span>CORS/Network';
   } finally {
     refreshRuns.disabled = false;
-    connectionState.innerHTML = '<span class="status-dot"></span>Ready';
+    if (connectionState.textContent.includes('Loading')) {
+      connectionState.innerHTML = '<span class="status-dot"></span>Ready';
+    }
   }
 }
 
@@ -121,8 +191,13 @@ refreshRuns.addEventListener('click', loadPreviousRuns);
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   message.hidden = true;
+  if (!hasCredentials()) {
+    showMessage('Enter username and password before running a comparison.');
+    connectionState.innerHTML = '<span class="status-dot"></span>Credentials required';
+    return;
+  }
   setBusy(true);
-  const base = apiBase.value.trim().replace(/\/$/, '');
+  const base = normalizeBaseUrl();
   const payload = {
     configID: Number($('#configId').value || 0),
     comparisonMode: $('#comparisonMode').value,
@@ -136,9 +211,13 @@ form.addEventListener('submit', async (event) => {
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
-    const data = await response.json();
-    if (response.status === 401) throw new Error('Authentication failed. Check the username and password.');
-    if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`);
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+    if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Comparison request failed'));
     if (state.mode === 'directories') {
       state.rows = (data.results || []).map((row) => ({ fileName: row.fileName, runID: row.runID }));
     } else {
@@ -146,8 +225,10 @@ form.addEventListener('submit', async (event) => {
     }
     renderRows();
     showMessage(`Comparison complete. ${state.rows.length} ${state.rows.length === 1 ? 'run was' : 'runs were'} recorded.`, 'success');
+    connectionState.innerHTML = '<span class="status-dot"></span>Connected';
   } catch (error) {
-    showMessage(error.message || 'The comparison request could not be completed.');
+    showMessage(classifyFetchError(error));
+    connectionState.innerHTML = '<span class="status-dot"></span>CORS/Network';
   } finally {
     setBusy(false);
   }
@@ -164,19 +245,31 @@ resultsBody.addEventListener('click', async (event) => {
   }
   state.expandedRuns.add(runID);
   renderRows();
+  if (!hasCredentials()) {
+    state.expandedRuns.delete(runID);
+    renderRows();
+    showMessage('Enter username and password before loading differences.');
+    connectionState.innerHTML = '<span class="status-dot"></span>Credentials required';
+    return;
+  }
   try {
-    const base = apiBase.value.trim().replace(/\/$/, '');
+    const base = normalizeBaseUrl();
     const response = await fetch(`${base}/runs/${encodeURIComponent(runID)}/differences`, { headers: getAuthHeaders() });
-    if (response.status === 401) throw new Error('Authentication failed. Check the username and password.');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`);
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+    if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Differences request failed'));
     state.details[runID] = data.differences || [];
     renderRows();
   } catch (error) {
     state.expandedRuns.delete(runID);
     renderRows();
-    showMessage(error.message || 'Differences could not be loaded.');
+    showMessage(classifyFetchError(error));
   }
 });
 
 renderRows();
+connectionState.innerHTML = '<span class="status-dot"></span>Credentials required';

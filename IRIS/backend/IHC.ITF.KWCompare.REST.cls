@@ -24,13 +24,41 @@ XData UrlMap [ XMLNamespace = "http://www.intersystems.com/urlmap" ]
 ClassMethod OnPreHTTP() As %Boolean
 {
     Set origin = $Get(%request.CgiEnvs("HTTP_ORIGIN"))
-    If origin = "http://localhost:4173" {
+    If ..IsAllowedOrigin(origin) {
+        Set requestedHeaders = $Get(%request.CgiEnvs("HTTP_ACCESS_CONTROL_REQUEST_HEADERS"))
+        If requestedHeaders = "" {
+            Set requestedHeaders = "Content-Type, Authorization"
+        }
         Set %response.Headers("Access-Control-Allow-Origin") = origin
-        Set %response.Headers("Access-Control-Allow-Headers") = "Content-Type, Authorization"
+        Set %response.Headers("Access-Control-Allow-Headers") = requestedHeaders
         Set %response.Headers("Access-Control-Allow-Methods") = "GET, POST, OPTIONS"
         Set %response.Headers("Access-Control-Max-Age") = "600"
+        Set %response.Headers("Vary") = "Origin"
     }
     Quit 1
+}
+
+ClassMethod IsAllowedOrigin(origin As %String) As %Boolean
+{
+    Set origin = $ZCONVERT($Get(origin),"L")
+    If origin = "" Quit 0
+    If origin = "null" Quit 1
+
+    Set scheme = $Piece(origin,"://",1)
+    If scheme'="http",scheme'="https" Quit 0
+
+    Set hostPort = $Piece($Piece(origin,"://",2),"/",1)
+    Set host = $Piece(hostPort,":",1)
+    Set port = $Piece(hostPort,":",2)
+    If port'="",port'?1.N Quit 0
+
+    If host="localhost" Quit 1
+    If host="127.0.0.1" Quit 1
+    If host="lpv-itfwin12" Quit 1
+    If host="itf-webapache-dev.co.ihc.com" Quit 1
+    If $Length(host)>11,$Extract(host,$Length(host)-10,*)=".co.ihc.com" Quit 1
+
+    Quit 0
 }
 
 ClassMethod Options() As %Status
