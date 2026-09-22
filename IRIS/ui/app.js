@@ -366,16 +366,16 @@ function renderToolHelp(tool) {
   if (!toolHelp) return;
 
   if (tool === 'processX12') {
-    toolHelp.innerHTML = '<strong>Process X12</strong><ul><li>Will copy the X12 files from the source X12 directory to IRIS and Edifecs inbound directories</li><li>Both engines will generate Keyword files</li></ul>';
+    toolHelp.innerHTML = '<strong>Process X12</strong><ul><li>REST service will copy the X12 files from the source X12 directory to IRIS and Edifecs inbound directories</li><li>Both engines will process X12 and generate Keyword files</li></ul>';
     return;
   }
 
   if (tool === 'runCompare') {
-    toolHelp.innerHTML = '<strong>Run comparison</strong><ul><li>Select the two output directories with Keyword files</li><li>Will run comparison and store the results in tables</li></ul>';
+    toolHelp.innerHTML = '<strong>Run comparison</strong><ul><li>Select the two output directories with Keyword files</li><li>REST service will run the comparison and store the results in the tables</li></ul>';
     return;
   }
 
-  toolHelp.innerHTML = '<strong>Display results</strong><ul><li>Click Load previous runs</li><li>Results Summary is displayed</li><li>Click View to view all differences</li><li>Click a line to show field-level differences</li></ul>';
+  toolHelp.innerHTML = '<strong>Display results</strong><ul><li>Click Load previous runs</li><li>Results Summary is displayed</li><li>Click View to view the differences</li><li>Click any line to view the field-level differences</li></ul>';
 }
 
 function setCompareMode(mode) {
@@ -389,13 +389,13 @@ function setCompareMode(mode) {
   if (mode === 'directories') {
     sourceALabel.textContent = 'IRIS directory';
     sourceBLabel.textContent = 'Edifecs directory';
-    sourceA.value = '/itf-share/itf-tmp/KWCompare/IRIS';
-    sourceB.value = '/itf-share/itf-tmp/KWCompare/Edifecs';
+    sourceA.value = '/itf-share/itf-tmp/KW-testing/IRIS/KW/';
+    sourceB.value = '/itf-share/itf-tmp/KW-testing/Edifecs/KW/';
   } else {
     sourceALabel.textContent = 'IRIS file';
     sourceBLabel.textContent = 'Edifecs file';
-    sourceA.value = '/itf-share/itf-tmp/KWCompare/IRIS/file.txt';
-    sourceB.value = '/itf-share/itf-tmp/KWCompare/Edifecs/file.txt';
+    sourceA.value = '/itf-share/itf-tmp/KW-testing/IRIS/KW/file.txt';
+    sourceB.value = '/itf-share/itf-tmp/KW-testing/Edifecs/KW/file.txt';
   }
 }
 
@@ -443,8 +443,8 @@ form.addEventListener('submit', async (event) => {
   setBusy(true);
   const base = normalizeBaseUrl();
   const payload = {
-    configID: Number($('#configId').value || 0),
-    comparisonMode: $('#comparisonMode').value,
+    configID: 0,
+    comparisonMode: 'LINE',
   };
   payload[state.mode === 'directories' ? 'directoryA' : 'fileAPath'] = sourceA.value.trim();
   payload[state.mode === 'directories' ? 'directoryB' : 'fileBPath'] = sourceB.value.trim();
