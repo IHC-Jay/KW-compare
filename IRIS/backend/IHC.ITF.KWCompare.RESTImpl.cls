@@ -72,10 +72,12 @@ ClassMethod DeleteExistingResults() As %Status
     }
 
     Set status = ..ExecuteDelete("DELETE FROM IHC_ITF_KWCompare.CompareRun")
+    /*
     If $$$ISERR(status) {
         TROLLBACK
         Quit status
     }
+    */
 
     TCOMMIT
     set ^webService("KWCompare DeleteExistingResults") = "Completed @ " _ $ZDATETIME($HOROLOG, 3, 1, 6)
@@ -195,6 +197,7 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
 
     Set differences = []
     Set ignoredFieldDetails = []
+    Set ignoredDifferenceDetails = []
     Kill ignoredSeen
     Set statement = ##class(%SQL.Statement).%New()
     
@@ -225,6 +228,8 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
         Do difference.%Set("fileBValue", result.%Get("FileBValue"))
         Do difference.%Set("details", result.%Get("Details"))
         Set fields = []
+        Set rowIgnoredFields = []
+        Kill rowIgnoredSeen
         Set fieldResult = fieldStatement.%Execute(id, result.%Get("ID"))
         While fieldResult.%Next() {
             Set fieldName = fieldResult.%Get("FieldName")
@@ -237,6 +242,13 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
                     Do ignoredField.%Set("recordType", fieldRecordType)
                     Do ignoredField.%Set("fieldName", fieldName)
                     Do ignoredFieldDetails.%Push(ignoredField)
+                }
+                If '$Data(rowIgnoredSeen(ignoredKey)) {
+                    Set rowIgnoredSeen(ignoredKey) = 1
+                    Set rowIgnoredField = {}
+                    Do rowIgnoredField.%Set("recordType", fieldRecordType)
+                    Do rowIgnoredField.%Set("fieldName", fieldName)
+                    Do rowIgnoredFields.%Push(rowIgnoredField)
                 }
                 Continue
             }
@@ -255,6 +267,13 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
             Do fields.%Push(field)
         }
         If result.%Get("DifferenceType") = "CHANGED", fields.%Size() = 0 {
+            Set ignoredRow = {}
+            Do ignoredRow.%Set("id", result.%Get("ID"))
+            Do ignoredRow.%Set("fileALineNumber", result.%Get("FileALineNumber"))
+            Do ignoredRow.%Set("fileBLineNumber", result.%Get("FileBLineNumber"))
+            Do ignoredRow.%Set("recordKey", result.%Get("RecordKey"))
+            Do ignoredRow.%Set("ignoredFields", rowIgnoredFields)
+            Do ignoredDifferenceDetails.%Push(ignoredRow)
             Continue
         }
         Do difference.%Set("fields", fields)
@@ -269,6 +288,7 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
     Do response.%Set("ignoredByConfig", ignoredByConfig)
     Do response.%Set("ignoredFieldDetails", ignoredFieldDetails)
     Do response.%Set("ignoredConfigFields", ignoredConfigFields)
+    Do response.%Set("ignoredDifferences", ignoredDifferenceDetails)
     Do response.%Set("count", differences.%Size())
     Do response.%Set("differences", differences)
     Quit $$$OK

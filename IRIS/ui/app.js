@@ -344,6 +344,7 @@ function renderRunDetails(runID) {
   const ignoredByConfig = Number(Array.isArray(detailState) ? 0 : (detailState.ignoredByConfig ?? Math.max(totalDifferences - visibleDifferences, 0)));
   const ignoredFieldDetails = Array.isArray(detailState) ? [] : (detailState.ignoredFieldDetails || []);
   const ignoredConfigFields = Array.isArray(detailState) ? [] : (detailState.ignoredConfigFields || []);
+  const ignoredDifferences = Array.isArray(detailState) ? [] : (detailState.ignoredDifferences || []);
   const displayIgnoredFields = ignoredFieldDetails.length ? ignoredFieldDetails : ignoredConfigFields;
   const ignoredFieldsText = displayIgnoredFields
     .map((item) => `${String(item?.recordType || '').trim()}.${String(item?.fieldName || '').trim()}`)
@@ -355,11 +356,21 @@ function renderRunDetails(runID) {
   const ignoredFieldMarkup = ignoredFieldsText
     ? `<div class="detail-loading">Ignored fields: ${escapeHtml(ignoredFieldsText)}</div>`
     : (ignoredByConfig > 0 ? '<div class="detail-loading">Ignored fields: (details unavailable from service response)</div>' : '');
+  const ignoredRowsMarkup = ignoredDifferences.length
+    ? `<div class="detail-loading">Ignored rows: ${escapeHtml(ignoredDifferences.map((item) => {
+      const lineNumber = String(item?.fileALineNumber || item?.fileBLineNumber || 'n/a');
+      const fieldText = (item?.ignoredFields || [])
+        .map((field) => `${String(field?.recordType || '').trim()}.${String(field?.fieldName || '').trim()}`)
+        .filter((value) => value !== '.')
+        .join(', ');
+      return fieldText ? `Line ${lineNumber} (${fieldText})` : `Line ${lineNumber}`;
+    }).join(' | '))}</div>`
+    : '';
   if (!details.length) {
     const emptyMessage = ignoredByConfig > 0 ? 'All differences for this run are ignored by the selected config.' : 'No differences found.';
-    return `<tr class="detail-row"><td colspan="4">${clarification}${ignoredFieldMarkup}<div class="detail-empty">${escapeHtml(emptyMessage)}</div></td></tr>`;
+    return `<tr class="detail-row"><td colspan="4">${clarification}${ignoredFieldMarkup}${ignoredRowsMarkup}<div class="detail-empty">${escapeHtml(emptyMessage)}</div></td></tr>`;
   }
-  return `<tr class="detail-row"><td colspan="4">${clarification}${ignoredFieldMarkup}<div class="difference-list">${details.map((difference) => {
+  return `<tr class="detail-row"><td colspan="4">${clarification}${ignoredFieldMarkup}${ignoredRowsMarkup}<div class="difference-list">${details.map((difference) => {
     const fields = difference.fields || [];
     const previewText = buildDifferencePreview(difference);
     const fieldMarkup = fields.length
@@ -999,6 +1010,7 @@ resultsBody.addEventListener('click', async (event) => {
       ignoredByConfig: data?.ignoredByConfig,
       ignoredFieldDetailsCount: Array.isArray(data?.ignoredFieldDetails) ? data.ignoredFieldDetails.length : 0,
       ignoredConfigFieldsCount: Array.isArray(data?.ignoredConfigFields) ? data.ignoredConfigFields.length : 0,
+      ignoredDifferencesCount: Array.isArray(data?.ignoredDifferences) ? data.ignoredDifferences.length : 0,
       differencesLength: Array.isArray(data?.differences) ? data.differences.length : 0,
     });
     if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Differences request failed'));
@@ -1016,6 +1028,7 @@ resultsBody.addEventListener('click', async (event) => {
       ignoredByConfig: Number(data.ignoredByConfig ?? 0),
       ignoredFieldDetails,
       ignoredConfigFields,
+      ignoredDifferences: Array.isArray(data.ignoredDifferences) ? data.ignoredDifferences : [],
     };
     renderRows();
   } catch (error) {
