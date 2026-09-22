@@ -59,6 +59,12 @@ h2 { margin-bottom: 0; font-size: 30px; font-weight: normal; letter-spacing: -.0
 .process-pattern { margin: 0; padding: 10px 14px; color: var(--muted); border-bottom: 1px solid var(--line); font: 12px Arial, sans-serif; }
 .process-table-wrap { overflow-x: auto; }
 .process-table-wrap table { min-width: 860px; }
+.config-editor { margin-top: 2px; }
+.config-actions { display: flex; align-items: flex-end; }
+.config-footer { justify-content: flex-start; }
+.config-table-wrap { margin-top: 16px; }
+.remove-rule { border: 0; padding: 0; color: var(--teal); background: transparent; font: bold 12px Arial, sans-serif; text-decoration: underline; }
+.remove-rule:hover { color: var(--teal-dark); }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 18px; }
 .field { display: flex; flex-direction: column; gap: 9px; }
 .field span, .api-field span { color: var(--muted); font: bold 11px Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }

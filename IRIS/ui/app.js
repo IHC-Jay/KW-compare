@@ -1,5 +1,33 @@
-const state = { mode: 'directories', rows: [], expandedRuns: new Set(), details: {}, showDifferencesOnly: false };
+const state = {
+  mode: 'directories',
+  rows: [],
+  expandedRuns: new Set(),
+  details: {},
+  showDifferencesOnly: false,
+  configs: [],
+  currentConfigId: null,
+  currentConfigRules: [],
+};
 const $ = (selector) => document.querySelector(selector);
+
+const CONFIG_FIELD_CATALOG = {
+  A: ['pA100', 'pA110', 'pA120'],
+  C: ['pC010', 'pC015', 'pC050', 'pC060', 'pC080', 'pC110', 'pC112', 'pC120', 'pC121', 'pC122', 'pC125', 'pC210', 'pC230', 'pC231', 'pC232', 'pC240', 'pC250', 'pC251', 'pC252', 'pC310', 'pC311', 'pC320', 'pC321', 'pC350', 'pC516', 'pC900'],
+  CDSD: ['pCDSD_IN_LOC_ZIP', 'pCDSD_MED_AMB_ZIP', 'pCDSD_NDC_CODE', 'pCDSD_NDC_MCTR_TYPE', 'pCDSD_NDC_UNITS'],
+  CLMF: ['pCLMF_ICD_QUAL_IND', 'pCLMF_PRPR_FA_NPI'],
+  CLRN: ['pCLRN_IDENTIFIER', 'pCLRN_MCTR_VALUE'],
+  D: ['pD240', 'pD310', 'pD320', 'pD340', 'pD410', 'pD420', 'pD430'],
+  E: ['pE100', 'pE101', 'pE102', 'pE110', 'pE111', 'pE120', 'pE121', 'pE130', 'pE131', 'pE140', 'pE141', 'pE150', 'pE151', 'pE152', 'pE160', 'pE161', 'pE162', 'pE170', 'pE171', 'pE172', 'pE180', 'pE181', 'pE182', 'pE190', 'pE191', 'pE192', 'pE200', 'pE201', 'pE202', 'pE210', 'pE211', 'pE212', 'pE214', 'pE220', 'pE221', 'pE222', 'pE224', 'pE230', 'pE231', 'pE232', 'pE234', 'pE260', 'pE261', 'pE262', 'pE270', 'pE271', 'pE272', 'pE280', 'pE281', 'pE282', 'pE290', 'pE291', 'pE292', 'pE300', 'pE301', 'pE302', 'pE310', 'pE311', 'pE312', 'pE320', 'pE321', 'pE322', 'pE330', 'pE331', 'pE332', 'pE340', 'pE341', 'pE342', 'pE350', 'pE351', 'pE352', 'pE360', 'pE361', 'pE362', 'pE370', 'pE371', 'pE372', 'pE380', 'pE381', 'pE382', 'pE390', 'pE391', 'pE392', 'pE400', 'pE401', 'pE402', 'pE410', 'pE411', 'pE412', 'pE420', 'pE421', 'pE422', 'pE430', 'pE431', 'pE432', 'pE440', 'pE441', 'pE442', 'pE450', 'pE451', 'pE452', 'pE460', 'pE461', 'pE462', 'pE470', 'pE471', 'pE472', 'pE480', 'pE481', 'pE482', 'pE490', 'pE491', 'pE492', 'pE500', 'pE501', 'pE502', 'pE510', 'pE511', 'pE512', 'pE520', 'pE521', 'pE522', 'pE530', 'pE531', 'pE532', 'pE540', 'pE541', 'pE542', 'pE550', 'pE551', 'pE552'],
+  H: ['pH110', 'pH120', 'pH130', 'pH210', 'pH220', 'pH230', 'pH235', 'pH240', 'pH250', 'pH310', 'pH420', 'pH430', 'pH510', 'pH511', 'pH512', 'pH520', 'pH521', 'pH522', 'pH530', 'pH531', 'pH532', 'pH540', 'pH541', 'pH542', 'pH550', 'pH551', 'pH552', 'pH560', 'pH561', 'pH562', 'pH570', 'pH571', 'pH572', 'pH580', 'pH581', 'pH582', 'pH590', 'pH591', 'pH592', 'pH600', 'pH601', 'pH602', 'pH603', 'pH604', 'pH605', 'pH606', 'pH607', 'pH608', 'pH610', 'pH620', 'pH630', 'pH640', 'pH650', 'pH660', 'pH670', 'pH680', 'pH690', 'pH710', 'pH711', 'pH712', 'pH730', 'pH740'],
+  N: ['pN120', 'pN130'],
+  O: ['pCDML_SEQ_NO', 'pO110', 'pO115', 'pO130', 'pO500', 'pO501'],
+  P: ['pP010', 'pP110', 'pP120', 'pP150', 'pP160', 'pP210', 'pP220', 'pP230', 'pP240', 'pP310', 'pP320', 'pP330', 'pP340', 'pP350', 'pP360'],
+  S: ['pS020', 'pS110', 'pS111', 'pS112', 'pS120', 'pS121', 'pS122', 'pS125', 'pS126', 'pS127', 'pS211', 'pS212', 'pS213', 'pS221', 'pS222', 'pS223', 'pS232', 'pS310', 'pS311', 'pS315', 'pS316', 'pS317', 'pS330'],
+  U: ['pU120', 'pU130', 'pU140', 'pU150'],
+  V: ['pV130', 'pV140', 'pV160'],
+  X: ['pX010', 'pX020', 'pX121', 'pX131', 'pX133', 'pX134', 'pX135', 'pX136', 'pX141', 'pX145', 'pX147', 'pX150', 'pX151', 'pX152', 'pX156', 'pX157', 'pX158', 'pX182', 'pX184', 'pX210', 'pX810', 'pX811', 'pX812', 'pX814', 'pX820', 'pX821', 'pX822', 'pX824', 'pX840', 'pX841', 'pX842', 'pX844'],
+  Y: ['pY010', 'pY121', 'pY131', 'pY135', 'pY136', 'pY137', 'pY138', 'pY141', 'pY146', 'pY150', 'pY151', 'pY152', 'pY182', 'pY184'],
+};
 
 const form = $('#compareForm');
 const sourceA = $('#sourceA');
@@ -30,6 +58,17 @@ const toolHelp = $('#toolHelp');
 const recordModal = $('#recordModal');
 const recordModalBody = $('#recordModalBody');
 const recordModalClose = $('#recordModalClose');
+const configEditor = $('#configEditor');
+const configSelect = $('#configSelect');
+const newConfigButton = $('#newConfigButton');
+const configName = $('#configName');
+const configDescription = $('#configDescription');
+const configRecordType = $('#configRecordType');
+const configFieldName = $('#configFieldName');
+const addConfigRuleButton = $('#addConfigRule');
+const saveConfigButton = $('#saveConfigButton');
+const configRulesBody = $('#configRulesBody');
+const configMessage = $('#configMessage');
 
 function normalizeBaseUrl() {
   return apiBase.value.trim().replace(/\/$/, '');
@@ -114,6 +153,17 @@ function showMessage(text, type = 'error') {
   message.textContent = text;
   message.hidden = false;
   message.className = `message ${type === 'success' ? 'success' : ''}`;
+}
+
+function showConfigMessage(text, type = 'error') {
+  if (!configMessage) return;
+  configMessage.textContent = text;
+  configMessage.hidden = false;
+  configMessage.className = `message ${type === 'success' ? 'success' : ''}`;
+}
+
+function hideConfigMessage() {
+  if (configMessage) configMessage.hidden = true;
 }
 
 function setBusy(busy) {
@@ -375,7 +425,242 @@ function renderToolHelp(tool) {
     return;
   }
 
+  if (tool === 'config') {
+    toolHelp.innerHTML = '<strong>Add/Edit Config</strong><ul><li>Select record type and field to suppress</li><li>Add selected entries and save config through REST service</li></ul>';
+    return;
+  }
+
   toolHelp.innerHTML = '<strong>Display results</strong><ul><li>Click Load previous runs</li><li>Results Summary is displayed</li><li>Click View to view the differences</li><li>Click any line to view the field-level differences</li></ul>';
+}
+
+async function loadConfigsFromApi(showErrors = true) {
+  if (!hasCredentials()) {
+    if (showErrors) showConfigMessage('Enter username and password before loading configs.');
+    return false;
+  }
+
+  try {
+    const base = normalizeBaseUrl();
+    const response = await fetch(`${base}/configs`, { headers: getAuthHeaders() });
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+    if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Config list request failed'));
+
+    state.configs = (data.configs || []).map((config) => ({
+      id: config.id,
+      name: config.configName || config.name || '',
+      description: config.description || '',
+      active: config.active,
+      rules: [],
+    }));
+    renderConfigSelect();
+    return true;
+  } catch (error) {
+    if (showErrors) showConfigMessage(classifyFetchError(error));
+    return false;
+  }
+}
+
+function renderRecordTypeOptions() {
+  if (!configRecordType) return;
+  const recordTypes = Object.keys(CONFIG_FIELD_CATALOG).sort();
+  configRecordType.innerHTML = recordTypes.map((recordType) => `<option value="${escapeHtml(recordType)}">${escapeHtml(recordType)}</option>`).join('');
+  renderFieldOptions();
+}
+
+function renderFieldOptions() {
+  if (!configRecordType || !configFieldName) return;
+  const recordType = configRecordType.value;
+  const fields = CONFIG_FIELD_CATALOG[recordType] || [];
+  if (!fields.length) {
+    configFieldName.innerHTML = '<option value="">No fields available</option>';
+    return;
+  }
+  configFieldName.innerHTML = fields.map((field) => `<option value="${escapeHtml(field)}">${escapeHtml(field)}</option>`).join('');
+}
+
+function renderConfigRulesTable() {
+  if (!configRulesBody) return;
+  if (!state.currentConfigRules.length) {
+    configRulesBody.innerHTML = '<tr class="empty-row"><td colspan="3"><span class="empty-icon">&#8722;</span><strong>No fields selected yet</strong><span>Select a record type and field, then click Add field to config.</span></td></tr>';
+    return;
+  }
+  configRulesBody.innerHTML = state.currentConfigRules.map((rule, index) => `<tr><td>${escapeHtml(rule.recordType)}</td><td>${escapeHtml(rule.fieldName)}</td><td class="align-right"><button class="remove-rule" type="button" data-rule-index="${index}">Remove</button></td></tr>`).join('');
+}
+
+function renderConfigSelect() {
+  if (!configSelect) return;
+  const current = state.currentConfigId ? String(state.currentConfigId) : '';
+  const options = ['<option value="">Create new config</option>'];
+  state.configs
+    .slice()
+    .sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')))
+    .forEach((config) => {
+      options.push(`<option value="${escapeHtml(String(config.id))}">${escapeHtml(config.name || '(Unnamed config)')}</option>`);
+    });
+  configSelect.innerHTML = options.join('');
+  configSelect.value = current;
+}
+
+function resetConfigEditor() {
+  state.currentConfigId = null;
+  state.currentConfigRules = [];
+  if (configName) configName.value = '';
+  if (configDescription) configDescription.value = '';
+  renderConfigSelect();
+  renderConfigRulesTable();
+  hideConfigMessage();
+}
+
+async function loadConfigToEditor(configID) {
+  if (!hasCredentials()) {
+    showConfigMessage('Enter username and password before loading config details.');
+    return;
+  }
+
+  try {
+    const base = normalizeBaseUrl();
+    const response = await fetch(`${base}/configs/${encodeURIComponent(configID)}`, { headers: getAuthHeaders() });
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+    if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Config detail request failed'));
+
+    state.currentConfigId = data.id;
+    if (configName) configName.value = data.configName || '';
+    if (configDescription) configDescription.value = data.description || '';
+    state.currentConfigRules = (data.fields || []).map((field) => ({
+      recordType: String(field.recordType || ''),
+      fieldName: String(field.fieldName || ''),
+    }));
+    state.currentConfigRules.sort((left, right) => `${left.recordType}.${left.fieldName}`.localeCompare(`${right.recordType}.${right.fieldName}`));
+    renderConfigSelect();
+    renderConfigRulesTable();
+    hideConfigMessage();
+  } catch (error) {
+    showConfigMessage(classifyFetchError(error));
+  }
+}
+
+function addConfigRule() {
+  if (!configRecordType || !configFieldName) return;
+  const recordType = configRecordType.value;
+  const fieldName = configFieldName.value;
+  if (!recordType || !fieldName) {
+    showConfigMessage('Select record type and field first.');
+    return;
+  }
+  const duplicate = state.currentConfigRules.some((rule) => rule.recordType === recordType && rule.fieldName === fieldName);
+  if (duplicate) {
+    showConfigMessage('This field is already selected for the config.');
+    return;
+  }
+  state.currentConfigRules.push({ recordType, fieldName });
+  state.currentConfigRules.sort((left, right) => `${left.recordType}.${left.fieldName}`.localeCompare(`${right.recordType}.${right.fieldName}`));
+  renderConfigRulesTable();
+  showConfigMessage('Field added.', 'success');
+}
+
+async function saveConfigRemote() {
+  if (!configName) return;
+  const name = configName.value.trim();
+  if (!name) {
+    showConfigMessage('Config name is required.');
+    return;
+  }
+  if (!state.currentConfigRules.length) {
+    showConfigMessage('Add at least one field before saving.');
+    return;
+  }
+
+  if (!hasCredentials()) {
+    showConfigMessage('Enter username and password before saving config.');
+    return;
+  }
+
+  const payload = {
+    configName: name,
+    description: configDescription ? configDescription.value.trim() : '',
+    active: 1,
+    fields: state.currentConfigRules.map((rule) => ({
+      recordType: rule.recordType,
+      fieldName: rule.fieldName,
+      ignoreField: 1,
+    })),
+  };
+
+  try {
+    const base = normalizeBaseUrl();
+    const isUpdate = !!state.currentConfigId;
+    const endpoint = isUpdate
+      ? `${base}/configs/${encodeURIComponent(state.currentConfigId)}`
+      : `${base}/configs`;
+    const response = await fetch(endpoint, {
+      method: isUpdate ? 'PUT' : 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+    if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Save config request failed'));
+
+    state.currentConfigId = data.id || state.currentConfigId;
+    await loadConfigsFromApi(false);
+    if (state.currentConfigId) {
+      await loadConfigToEditor(state.currentConfigId);
+    }
+    showConfigMessage('Config saved successfully.', 'success');
+  } catch (error) {
+    showConfigMessage(classifyFetchError(error));
+  }
+}
+
+function initializeConfigEditor() {
+  if (!configEditor) return;
+  renderRecordTypeOptions();
+  renderConfigSelect();
+  renderConfigRulesTable();
+
+  if (configRecordType) {
+    configRecordType.addEventListener('change', () => {
+      renderFieldOptions();
+      hideConfigMessage();
+    });
+  }
+  if (configSelect) {
+    configSelect.addEventListener('change', async (event) => {
+      if (!event.target.value) {
+        resetConfigEditor();
+        return;
+      }
+      await loadConfigToEditor(event.target.value);
+    });
+  }
+  if (newConfigButton) newConfigButton.addEventListener('click', resetConfigEditor);
+  if (addConfigRuleButton) addConfigRuleButton.addEventListener('click', addConfigRule);
+  if (saveConfigButton) saveConfigButton.addEventListener('click', saveConfigRemote);
+  if (configRulesBody) {
+    configRulesBody.addEventListener('click', (event) => {
+      const removeButton = event.target.closest('.remove-rule');
+      if (!removeButton) return;
+      const index = Number(removeButton.dataset.ruleIndex);
+      if (Number.isNaN(index)) return;
+      state.currentConfigRules = state.currentConfigRules.filter((_, itemIndex) => itemIndex !== index);
+      renderConfigRulesTable();
+      showConfigMessage('Field removed.', 'success');
+    });
+  }
 }
 
 function setCompareMode(mode) {
@@ -408,13 +693,18 @@ function setTool(tool) {
 
   const processMode = tool === 'processX12';
   const runCompareMode = tool === 'runCompare';
+  const configMode = tool === 'config';
   const resultsMode = tool === 'results';
 
   form.classList.toggle('hidden-pane', !runCompareMode);
   processForm.classList.toggle('hidden-pane', !processMode);
+  if (configEditor) configEditor.classList.toggle('hidden-pane', !configMode);
   processResultsWrap.classList.toggle('hidden-pane', !processMode);
   resultsSection.classList.toggle('hidden-pane', !resultsMode);
   renderToolHelp(tool);
+  if (configMode && !state.configs.length) {
+    loadConfigsFromApi(false);
+  }
   updateActionAvailability();
 }
 
@@ -584,6 +874,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 renderRows();
+initializeConfigEditor();
 setCompareMode('directories');
 setTool('runCompare');
 setConnectionState('Credentials required');

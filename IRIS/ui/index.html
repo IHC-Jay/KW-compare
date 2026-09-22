@@ -37,6 +37,7 @@
     <section class="workspace-panel" aria-label="Comparison controls">
       <div class="panel-header">
         <div class="tool-tabs" role="tablist" aria-label="Tool functionality">
+          <button class="tool-tab" data-tool="config" role="tab" aria-selected="false">Add/Edit Config</button>
           <button class="tool-tab" data-tool="processX12" role="tab" aria-selected="false">Process X12</button>
           <button class="tool-tab active" data-tool="runCompare" role="tab" aria-selected="true">Run Compare</button>
           <button class="tool-tab" data-tool="results" role="tab" aria-selected="false">Comparison Results</button>
@@ -96,6 +97,56 @@
           <button class="primary-button" type="submit" disabled><span>Process X12 files</span><span class="button-arrow">&#8594;</span></button>
         </div>
       </form>
+
+      <section class="config-editor hidden-pane" id="configEditor" aria-live="polite">
+        <div class="field-grid">
+          <label class="field field-wide">
+            <span>Saved configs</span>
+            <select id="configSelect">
+              <option value="">Create new config</option>
+            </select>
+          </label>
+          <div class="config-actions">
+            <button class="refresh-button" id="newConfigButton" type="button">New config</button>
+          </div>
+
+          <label class="field field-wide">
+            <span>Config name</span>
+            <input id="configName" autocomplete="off" placeholder="Example: Ignore C date fields">
+          </label>
+          <label class="field field-wide">
+            <span>Description</span>
+            <input id="configDescription" autocomplete="off" placeholder="Optional description">
+          </label>
+
+          <label class="field">
+            <span>Record type</span>
+            <select id="configRecordType"></select>
+          </label>
+          <label class="field">
+            <span>Field</span>
+            <select id="configFieldName"></select>
+          </label>
+        </div>
+
+        <div class="form-footer config-footer">
+          <button class="primary-button" id="addConfigRule" type="button"><span>Add field to config</span><span class="button-arrow">&#8594;</span></button>
+          <button class="refresh-button" id="saveConfigButton" type="button">Save config</button>
+        </div>
+
+        <div class="message" id="configMessage" hidden></div>
+
+        <div class="results-table-wrap config-table-wrap">
+          <table>
+            <thead>
+              <tr><th>Record Type</th><th>Field</th><th class="align-right">Action</th></tr>
+            </thead>
+            <tbody id="configRulesBody">
+              <tr class="empty-row"><td colspan="3"><span class="empty-icon">&#8722;</span><strong>No fields selected yet</strong><span>Select a record type and field, then click Add field to config.</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <div class="process-results hidden-pane" id="processResultsWrap" aria-live="polite">
         <div class="process-results-head">

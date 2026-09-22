@@ -9,12 +9,20 @@ XData UrlMap [ XMLNamespace = "http://www.intersystems.com/urlmap" ]
 <Route Url="/files" Method="POST" Call="CompareFiles" />
 <Route Url="/directories" Method="POST" Call="CompareDirectories" />
 <Route Url="/processX12" Method="POST" Call="ProcessX12" />
+<Route Url="/configs" Method="GET" Call="GetConfigs" />
+<Route Url="/configs/:id" Method="GET" Call="GetConfig" />
+<Route Url="/configs" Method="POST" Call="CreateConfig" />
+<Route Url="/configs/:id" Method="PUT" Call="UpdateConfig" />
+<Route Url="/configs/:id/fields" Method="PUT" Call="SaveConfigFields" />
 <Route Url="/runs" Method="GET" Call="GetRuns" />
 <Route Url="/runs/:id" Method="GET" Call="GetRun" />
 <Route Url="/runs/:id/differences" Method="GET" Call="GetDifferences" />
 <Route Url="/files" Method="OPTIONS" Call="Options" />
 <Route Url="/directories" Method="OPTIONS" Call="Options" />
 <Route Url="/processX12" Method="OPTIONS" Call="Options" />
+<Route Url="/configs" Method="OPTIONS" Call="Options" />
+<Route Url="/configs/:id" Method="OPTIONS" Call="Options" />
+<Route Url="/configs/:id/fields" Method="OPTIONS" Call="Options" />
 <Route Url="/runs" Method="OPTIONS" Call="Options" />
 <Route Url="/runs/:id" Method="OPTIONS" Call="Options" />
 <Route Url="/runs/:id/differences" Method="OPTIONS" Call="Options" />
@@ -89,6 +97,54 @@ ClassMethod ProcessX12() As %Status
     Set status = ##class(IHC.ITF.KWCompare.RESTImpl).ProcessX12(request, .response)
     Do ..WriteJSON(response)
     Quit status
+}
+
+ClassMethod GetConfigs() As %Status
+{
+    Set status = ##class(IHC.ITF.KWCompare.RESTImpl).GetConfigs(.response)
+    Do ..WriteJSON(response)
+    Quit status
+}
+
+ClassMethod GetConfig(id As %Integer) As %Status
+{
+    Set status = ##class(IHC.ITF.KWCompare.RESTImpl).GetConfig(id, .response)
+    If $IsObject(response), response.%IsDefined("error") {
+        Set %response.Status = 404
+    }
+    Do ..WriteJSON(response)
+    Quit $$$OK
+}
+
+ClassMethod CreateConfig() As %Status
+{
+    Set request = {}.%FromJSON(%request.Content.Read())
+    Set status = ##class(IHC.ITF.KWCompare.RESTImpl).CreateConfig(request, .response)
+    Set %response.Status = 201
+    Do ..WriteJSON(response)
+    Quit status
+}
+
+ClassMethod UpdateConfig(id As %Integer) As %Status
+{
+    Set request = {}.%FromJSON(%request.Content.Read())
+    Set status = ##class(IHC.ITF.KWCompare.RESTImpl).UpdateConfig(id, request, .response)
+    If $IsObject(response), response.%IsDefined("error") {
+        Set %response.Status = 404
+    }
+    Do ..WriteJSON(response)
+    Quit $$$OK
+}
+
+ClassMethod SaveConfigFields(id As %Integer) As %Status
+{
+    Set request = {}.%FromJSON(%request.Content.Read())
+    Set status = ##class(IHC.ITF.KWCompare.RESTImpl).SaveConfigFields(id, request, .response)
+    If $IsObject(response), response.%IsDefined("error") {
+        Set %response.Status = 404
+    }
+    Do ..WriteJSON(response)
+    Quit $$$OK
 }
 
 ClassMethod GetRuns() As %Status
