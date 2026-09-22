@@ -31,31 +31,33 @@
           <input id="password" name="password" type="password" autocomplete="current-password" required>
         </label>
         <span class="auth-note">Used for this session only.</span>
-        <button class="refresh-button" id="refreshRuns" type="button">Load previous runs &#8595;</button>
       </div>
     </section>
 
     <section class="workspace-panel" aria-label="Comparison controls">
       <div class="panel-header">
-        <div>
-          <p class="section-kicker">New comparison</p>
-          <h2>Choose your source</h2>
-        </div>
-        <div class="mode-switch" role="tablist" aria-label="Comparison type">
-          <button class="mode-button active" data-mode="directories" role="tab" aria-selected="true">Directories</button>
-          <button class="mode-button" data-mode="files" role="tab" aria-selected="false">Files</button>
+        <div class="tool-tabs" role="tablist" aria-label="Tool functionality">
+          <button class="tool-tab" data-tool="processX12" role="tab" aria-selected="false">Process X12</button>
+          <button class="tool-tab active" data-tool="runCompare" role="tab" aria-selected="true">Run Compare</button>
+          <button class="tool-tab" data-tool="results" role="tab" aria-selected="false">Comparison Results</button>
         </div>
       </div>
 
+      <div class="tool-help" id="toolHelp" aria-live="polite"></div>
+
       <form id="compareForm">
+        <div class="mode-switch" role="tablist" aria-label="Run compare mode">
+          <button class="mode-button active" data-mode="directories" role="tab" aria-selected="true">Directories</button>
+          <button class="mode-button" data-mode="files" role="tab" aria-selected="false">Files</button>
+        </div>
         <div class="field-grid">
           <label class="field field-wide">
-            <span id="sourceALabel">Source directory A</span>
-            <input id="sourceA" name="sourceA" required value="/itf-share/itf-tmp/KWCompare/Edifecs/A" autocomplete="off">
+            <span id="sourceALabel">IRIS directory</span>
+            <input id="sourceA" name="sourceA" required value="/itf-share/itf-tmp/KWCompare/IRIS" autocomplete="off">
           </label>
           <label class="field field-wide">
-            <span id="sourceBLabel">Source directory B</span>
-            <input id="sourceB" name="sourceB" required value="/itf-share/itf-tmp/KWCompare/Edifecs/B" autocomplete="off">
+            <span id="sourceBLabel">Edifecs directory</span>
+            <input id="sourceB" name="sourceB" required value="/itf-share/itf-tmp/KWCompare/Edifecs" autocomplete="off">
           </label>
           <label class="field">
             <span>Configuration ID</span>
@@ -73,31 +75,92 @@
             <span>IRIS API base URL</span>
             <input id="apiBase" name="apiBase" value="/api" autocomplete="url">
           </label>
-          <button class="primary-button" type="submit"><span>Run comparison</span><span class="button-arrow">&#8594;</span></button>
+          <button class="primary-button" type="submit" disabled><span>Run comparison</span><span class="button-arrow">&#8594;</span></button>
         </div>
       </form>
+
+      <form id="processForm" class="hidden-pane">
+        <div class="field-grid">
+          <label class="field field-wide">
+            <span>Source directory</span>
+            <input id="processSourceDirectory" required value="/itf-share/itf-tmp/KWCompare/Source" autocomplete="off">
+          </label>
+          <label class="field field-wide">
+            <span>IRIS inbound directory</span>
+            <input id="processIrisInboundDirectory" required value="/itf-share/itf-tmp/KWCompare/IRIS/Inbound" autocomplete="off">
+          </label>
+          <label class="field field-wide">
+            <span>Edifecs inbound directory</span>
+            <input id="processEdifecsInboundDirectory" required value="/itf-share/itf-tmp/KWCompare/Edifecs/Inbound" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>File pattern</span>
+            <input id="processFilePattern" value="*.x12" autocomplete="off">
+          </label>
+        </div>
+        <div class="form-footer">
+          <label class="api-field">
+            <span>IRIS API base URL</span>
+            <input id="apiBaseProcess" value="/api" autocomplete="url">
+          </label>
+          <button class="primary-button" type="submit" disabled><span>Process X12 files</span><span class="button-arrow">&#8594;</span></button>
+        </div>
+      </form>
+
+      <div class="process-results hidden-pane" id="processResultsWrap" aria-live="polite">
+        <div class="process-results-head">
+          <strong>X12 Files copied</strong>
+          <span id="processResultCount">0 files</span>
+        </div>
+        <p class="process-pattern" id="processResultPattern"></p>
+        <div class="process-table-wrap">
+          <table>
+            <thead>
+              <tr><th>File</th><th>Source Path</th><th>IRIS Target</th><th>Edifecs Target</th></tr>
+            </thead>
+            <tbody id="processResultsBody">
+              <tr class="empty-row"><td colspan="4"><span class="empty-icon">&#8722;</span><strong>No process results yet</strong><span>Run Process X12 to view routed files here.</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
-    <section class="results-section" aria-live="polite">
+    <section class="results-section" id="resultsSection" aria-live="polite">
       <div class="results-heading">
         <div>
           <p class="section-kicker">Latest activity</p>
           <h2>Comparison results</h2>
         </div>
-        <span class="result-count" id="resultCount">0 runs</span>
+        <div class="results-controls">
+          <button class="refresh-button" id="refreshRuns" type="button" disabled>Load previous runs &#8595;</button>
+          <label class="results-filter" for="differencesOnly"><input id="differencesOnly" type="checkbox">Display files with differences only</label>
+          <span class="result-count" id="resultCount">0 runs</span>
+        </div>
       </div>
       <div class="message" id="message" hidden></div>
       <div class="results-table-wrap">
         <table>
           <thead>
-            <tr><th>File</th><th>Run ID</th><th>State</th><th>Differences</th><th class="align-right">Open</th></tr>
+            <tr><th>File</th><th>Ran</th><th>Differences</th><th class="align-right">Open</th></tr>
           </thead>
           <tbody id="resultsBody">
-            <tr class="empty-row"><td colspan="5"><span class="empty-icon">&#8722;</span><strong>No comparisons yet</strong><span>Run a comparison to see its matched files here.</span></td></tr>
+            <tr class="empty-row"><td colspan="4"><span class="empty-icon">&#8722;</span><strong>No comparisons yet</strong><span>Run a comparison to see its matched files here.</span></td></tr>
           </tbody>
         </table>
       </div>
     </section>
+
+    <div class="record-modal" id="recordModal" hidden>
+      <div class="record-modal-backdrop" data-close-modal="true"></div>
+      <div class="record-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="recordModalTitle">
+        <div class="record-modal-header">
+          <h3 id="recordModalTitle">Line record details</h3>
+          <button type="button" class="record-modal-close" id="recordModalClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="record-modal-body" id="recordModalBody"></div>
+      </div>
+    </div>
 
     <footer class="footer"><span>KW Compare</span><span>IRIS backend</span></footer>
   </main>
