@@ -82,6 +82,7 @@ function syncApiBases(sourceValue) {
 }
 
 function setConnectionState(statusText) {
+  if (!connectionState) return;
   const base = normalizeBaseUrl() || '/api';
   connectionState.innerHTML = `<span class="status-dot"></span>${escapeHtml(statusText)} <span class="connection-meta">(${escapeHtml(base)})</span>`;
 }
@@ -259,7 +260,7 @@ async function loadPreviousRuns() {
     setConnectionState('CORS/Network');
   } finally {
     refreshRuns.disabled = !hasCredentials();
-    if (connectionState.textContent.includes('Loading')) {
+    if (connectionState && connectionState.textContent.includes('Loading')) {
       setConnectionState('Ready');
     }
   }
@@ -320,14 +321,22 @@ async function loadRunSummary(runID) {
 }
 
 function renderRunDetails(runID) {
-  const details = state.details[String(runID)];
-  if (!details) {
+  const detailState = state.details[String(runID)];
+  if (!detailState) {
     return '<tr class="detail-row"><td colspan="4"><div class="detail-loading">Loading differences...</div></td></tr>';
   }
+  const details = Array.isArray(detailState) ? detailState : (detailState.differences || []);
+  const totalDifferences = Number(Array.isArray(detailState) ? details.length : (detailState.totalDifferences ?? details.length));
+  const visibleDifferences = Number(Array.isArray(detailState) ? details.length : (detailState.visibleDifferences ?? details.length));
+  const ignoredByConfig = Number(Array.isArray(detailState) ? 0 : (detailState.ignoredByConfig ?? Math.max(totalDifferences - visibleDifferences, 0)));
+  const clarification = ignoredByConfig > 0
+    ? `<div class="detail-loading">${escapeHtml(String(totalDifferences))} total • ${escapeHtml(String(ignoredByConfig))} ignored by config • ${escapeHtml(String(visibleDifferences))} shown</div>`
+    : '';
   if (!details.length) {
-    return '<tr class="detail-row"><td colspan="4"><div class="detail-empty">No differences found.</div></td></tr>';
+    const emptyMessage = ignoredByConfig > 0 ? 'All differences for this run are ignored by the selected config.' : 'No differences found.';
+    return `<tr class="detail-row"><td colspan="4">${clarification}<div class="detail-empty">${escapeHtml(emptyMessage)}</div></td></tr>`;
   }
-  return `<tr class="detail-row"><td colspan="4"><div class="difference-list">${details.map((difference) => {
+  return `<tr class="detail-row"><td colspan="4">${clarification}<div class="difference-list">${details.map((difference) => {
     const fields = difference.fields || [];
     const previewText = buildDifferencePreview(difference);
     const fieldMarkup = fields.length
@@ -392,7 +401,8 @@ function buildHighlightedRecord(recordValue, fields, valueKey) {
 }
 
 function openRecordModal(runID, differenceID) {
-  const runDetails = state.details[String(runID)] || [];
+  const detailState = state.details[String(runID)] || [];
+  const runDetails = Array.isArray(detailState) ? detailState : (detailState.differences || []);
   const difference = runDetails.find((item) => String(item.id) === String(differenceID));
   if (!difference) return;
 
@@ -899,6 +909,7 @@ resultsBody.addEventListener('click', async (event) => {
   const button = event.target.closest('.open-run');
   if (!button) return;
   const runID = String(button.dataset.runId);
+  console.info('[KW Compare] View clicked', { runID });
   if (state.expandedRuns.has(runID)) {
     state.expandedRuns.delete(runID);
     renderRows();
@@ -915,15 +926,35 @@ resultsBody.addEventListener('click', async (event) => {
   }
   try {
     const base = normalizeBaseUrl();
-    const response = await fetch(`${base}/runs/${encodeURIComponent(runID)}/differences`, { headers: getAuthHeaders() });
+    const selectedConfigId = Number(compareConfigId?.value || 0);
+    const differencesPath = selectedConfigId > 0
+      ? `${base}/runs/${encodeURIComponent(runID)}/differences?configID=${encodeURIComponent(String(selectedConfigId))}`
+      : `${base}/runs/${encodeURIComponent(runID)}/differences`;
+    console.info('[KW Compare] Loading differences', { runID, selectedConfigId, url: differencesPath });
+    const response = await fetch(differencesPath, { headers: getAuthHeaders() });
+    console.info('[KW Compare] Differences response', { runID, status: response.status, statusText: response.statusText });
     let data = {};
     try {
       data = await response.json();
     } catch {
       data = {};
     }
+    console.info('[KW Compare] Differences payload', {
+      runID,
+      selectedConfigId,
+      count: data?.count,
+      totalDifferences: data?.totalDifferences,
+      visibleDifferences: data?.visibleDifferences,
+      ignoredByConfig: data?.ignoredByConfig,
+      differencesLength: Array.isArray(data?.differences) ? data.differences.length : 0,
+    });
     if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Differences request failed'));
-    state.details[runID] = data.differences || [];
+    state.details[runID] = {
+      differences: data.differences || [],
+      totalDifferences: Number(data.totalDifferences ?? data.count ?? 0),
+      visibleDifferences: Number(data.visibleDifferences ?? data.count ?? 0),
+      ignoredByConfig: Number(data.ignoredByConfig ?? 0),
+    };
     renderRows();
   } catch (error) {
     state.expandedRuns.delete(runID);

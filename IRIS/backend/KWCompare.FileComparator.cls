@@ -1,12 +1,66 @@
-#include %occStatus
+Include Ensemble
 
-Class KWCompare.FileComparator
+Class IHC.ITF.KWCompare.FileComparator Extends %RegisteredObject
 {
+
+/// Compares files with matching names from two directories.
+ClassMethod CompareDirectories(directoryA As %String, directoryB As %String, configID As %Integer = 0, comparisonMode As %String = "LINE") As %DynamicArray
+{
+	set ^webService("FileComparator CompareDirectories: ") = directoryA _", " _ directoryB
+    If directoryA = "" || directoryB = "" {
+        Throw ##class(%Exception.General).%New("Both directory paths are required")
+    }
+    If '##class(%File).DirectoryExists(directoryA) {
+        Throw ##class(%Exception.General).%New("Directory A was not found: " _ directoryA)
+    }
+    If '##class(%File).DirectoryExists(directoryB) {
+        Throw ##class(%Exception.General).%New("Directory B was not found: " _ directoryB)
+    }
+
+    Set directoryA = ..NormalizeDirectory(directoryA)
+    Set directoryB = ..NormalizeDirectory(directoryB)
+    Set results = []
+    
+    If ( (##class(%File).DirectoryExists(directoryA)) && (##class(%File).DirectoryExists(directoryB))) {
+    
+		Set tSC = ##class(%File).FileSetExecute(.tHandle, directoryA, "", "", 1, ",")
+
+		If $$$ISOK(tSC) {
+			
+			Set tAtEnd = 0
+			For {
+				Set tSC = ##class(%File).FileSetFetch(.tHandle, .tRow, .tAtEnd)
+				set ^webService("FileComparator, from directory ") = tSC _", End: " _ tAtEnd _", entry: " _ tRow
+				If '$$$ISOK(tSC)!($ListLength(tRow)<6) Quit
+				set fileName = $List(tRow, 1)
+				set attr = ##class(%File).Attributes(fileName)
+			
+				if ( $BIT($FACTOR(attr),16) = 1) // Regular file
+				{
+				    set ^webService("FileComparator, file: ") = fileName
+                    Set fileBPath = directoryB _ "/" _ ##class(%File).GetFilename(fileName)
+                    If ##class(%File).Exists(fileBPath) {
+                        Set runID = ..CompareFiles(fileName, fileBPath, configID, comparisonMode)
+                        set ^webService("FileComparator, file: ") = fileName _", ID: " _ runID
+                        Do results.%Push({}.%Set("fileName",##class(%File).GetFilename(fileName), "runID",runID))
+                    } Else {
+                        set ^webService("FileComparator, missing pair") = fileBPath
+                    }
+				}
+				If tAtEnd Quit
+		  }
+		  Set tSC = ##class(%File).FileSetClose(.tHandle)
+		  set ^webService("FileComparator ") = "Done"
+		}
+    }
+
+    Quit results
+}
 
 /// Compares two text files line by line and returns the KW_COMPARE_RUN ID.
 ClassMethod CompareFiles(fileAPath As %String, fileBPath As %String, configID As %Integer = 0, comparisonMode As %String = "LINE") As %Integer
 {
-	WRITE !, "CompareFiles: " _ fileAPath _", " _ fileBPath
+	set ^webService("FileComparator CompareFiles: ") = fileAPath _", " _ fileBPath
     If fileAPath = "" || fileBPath = "" {
         Throw ##class(%Exception.General).%New("Both file paths are required")
     }
@@ -72,23 +126,23 @@ ClassMethod CompareFiles(fileAPath As %String, fileBPath As %String, configID As
             }
 
             If endA {
-                Set status = ..SaveDifference(run.ID, "ADDED", lineA, lineB, valueA, valueB, .lineDifferenceID)
+                Set status = ..SaveDifference(run.%Id(), "ADDED", lineA, lineB, valueA, valueB, .lineDifferenceID)
                 If $$$ISERR(status) {
                     Throw ##class(%Exception.StatusException).CreateFromStatus(status)
                 }
                 Set run.AddedRecords = run.AddedRecords + 1
             } ElseIf endB {
-                Set status = ..SaveDifference(run.ID, "REMOVED", lineA, lineB, valueA, valueB, .lineDifferenceID)
+                Set status = ..SaveDifference(run.%Id(), "REMOVED", lineA, lineB, valueA, valueB, .lineDifferenceID)
                 If $$$ISERR(status) {
                     Throw ##class(%Exception.StatusException).CreateFromStatus(status)
                 }
                 Set run.RemovedRecords = run.RemovedRecords + 1
             } ElseIf valueA '= valueB {
-                Set status = ..SaveDifference(run.ID, "CHANGED", lineA, lineB, valueA, valueB, .lineDifferenceID)
+                Set status = ..SaveDifference(run.%Id(), "CHANGED", lineA, lineB, valueA, valueB, .lineDifferenceID)
                 If $$$ISERR(status) {
                     Throw ##class(%Exception.StatusException).CreateFromStatus(status)
                 }
-                Set status = ..SaveFieldDifferences(run.ID, lineDifferenceID, lineA, lineB, valueA, valueB)
+                Set status = ..SaveFieldDifferences(run.%Id(), lineDifferenceID, lineA, lineB, valueA, valueB)
                 If $$$ISERR(status) {
                     Throw ##class(%Exception.StatusException).CreateFromStatus(status)
                 }
@@ -117,57 +171,6 @@ ClassMethod CompareFiles(fileAPath As %String, fileBPath As %String, configID As
     Quit run.%Id()
 }
 
-/// Compares files with matching names from two directories.
-ClassMethod CompareDirectories(directoryA As %String, directoryB As %String, configID As %Integer = 0, comparisonMode As %String = "LINE") As %DynamicArray
-{
-    If directoryA = "" || directoryB = "" {
-        Throw ##class(%Exception.General).%New("Both directory paths are required")
-    }
-    If '##class(%File).DirectoryExists(directoryA) {
-        Throw ##class(%Exception.General).%New("Directory A was not found: " _ directoryA)
-    }
-    If '##class(%File).DirectoryExists(directoryB) {
-        Throw ##class(%Exception.General).%New("Directory B was not found: " _ directoryB)
-    }
-
-    Set directoryA = ..NormalizeDirectory(directoryA)
-    Set directoryB = ..NormalizeDirectory(directoryB)
-    Set results = []
-    Set fileA = $ZSEARCH(directoryA _ "*")
-    For  {
-        Quit:fileA = ""
-        If '##class(%File).DirectoryExists(fileA) {
-            Set fileName = ..BaseName(fileA)
-            Set fileMap(fileName) = fileA
-        }
-        Set fileA = $ZSEARCH(directoryA _ "*")
-    }
-
-    Set fileB = $ZSEARCH(directoryB _ "*")
-    For  {
-        Quit:fileB = ""
-        If '##class(%File).DirectoryExists(fileB) {
-            Set fileName = ..BaseName(fileB)
-            If $Data(fileMap(fileName)) {
-                Set runID = ..CompareFiles(fileMap(fileName), fileB, configID, comparisonMode)
-                Do results.%Push({"fileName":fileName, "runID":runID})
-            }
-        }
-        Set fileB = $ZSEARCH(directoryB _ "*")
-    }
-
-    Quit results
-}
-
-ClassMethod NormalizeDirectory(directory As %String) As %String
-{
-    Set lastCharacter = $Extract(directory, $Length(directory))
-    If $Length(directory) > 1, (lastCharacter = "/" || lastCharacter = "\\") {
-        Quit $Extract(directory, 1, $Length(directory) - 1)
-    }
-    Quit directory
-}
-
 ClassMethod SaveDifference(runID As %Integer, differenceType As %String, lineA As %Integer, lineB As %Integer, valueA As %String, valueB As %String, ByRef differenceID As %Integer) As %Status
 {
     Set difference = ##class(IHC.ITF.KWCompare.CompareDifference).%New()
@@ -183,8 +186,8 @@ ClassMethod SaveDifference(runID As %Integer, differenceType As %String, lineA A
     Set difference.FileBValue = $EXTRACT(valueB, 1, 32000)
     Set difference.Details = $SELECT(differenceType="CHANGED":"Line values differ", differenceType="ADDED":"Line exists only in file B", 1:"Line exists only in file A")
     set res = difference.%Save()
-    Set differenceID = difference.%Id()
     WRITE !, "Save: " _ res
+    Set differenceID = difference.%Id()
     Quit res
 }
 
@@ -270,5 +273,13 @@ ClassMethod BaseName(path As %String) As %String
     Quit $PIECE(path, separator, $LENGTH(path, separator))
 }
 
+ClassMethod NormalizeDirectory(directory As %String) As %String
+{
+    Set lastCharacter = $Extract(directory, $Length(directory))
+    If $Length(directory) > 1, (lastCharacter = "/" || lastCharacter = "\\") {
+        Quit $Extract(directory, 1, $Length(directory) - 1)
+    }
+    Quit directory
+}
 
 }
