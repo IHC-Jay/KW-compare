@@ -34,6 +34,8 @@ const sourceA = $('#sourceA');
 const sourceB = $('#sourceB');
 const sourceALabel = $('#sourceALabel');
 const sourceBLabel = $('#sourceBLabel');
+const compareConfigId = $('#compareConfigId');
+const refreshCompareConfigs = $('#refreshCompareConfigs');
 const apiBase = $('#apiBase');
 const apiBaseProcess = $('#apiBaseProcess');
 const username = $('#username');
@@ -96,11 +98,47 @@ function updateActionAvailability() {
   compareButton.disabled = !enabled;
   processButton.disabled = !enabled;
   refreshRuns.disabled = !enabled;
+  if (refreshCompareConfigs) refreshCompareConfigs.disabled = !enabled;
 
   const hint = enabled ? '' : 'Enter username and password first';
   compareButton.title = hint;
   processButton.title = hint;
   refreshRuns.title = hint;
+  if (refreshCompareConfigs) refreshCompareConfigs.title = hint;
+
+  if (configSelect) {
+    configSelect.disabled = !enabled;
+    configSelect.title = hint;
+  }
+  if (newConfigButton) {
+    newConfigButton.disabled = !enabled;
+    newConfigButton.title = hint;
+  }
+  if (configName) {
+    configName.disabled = !enabled;
+    configName.title = hint;
+  }
+  if (configDescription) {
+    configDescription.disabled = !enabled;
+    configDescription.title = hint;
+  }
+  if (configRecordType) {
+    configRecordType.disabled = !enabled;
+    configRecordType.title = hint;
+  }
+  if (configFieldName) {
+    configFieldName.disabled = !enabled;
+    configFieldName.title = hint;
+  }
+  if (addConfigRuleButton) {
+    addConfigRuleButton.disabled = !enabled;
+    addConfigRuleButton.title = hint;
+  }
+  if (saveConfigButton) {
+    saveConfigButton.disabled = !enabled;
+    saveConfigButton.title = hint;
+  }
+  renderConfigRulesTable();
 }
 
 function classifyFetchError(error) {
@@ -457,11 +495,31 @@ async function loadConfigsFromApi(showErrors = true) {
       active: config.active,
       rules: [],
     }));
+    renderCompareConfigOptions();
     renderConfigSelect();
     return true;
   } catch (error) {
     if (showErrors) showConfigMessage(classifyFetchError(error));
     return false;
+  }
+}
+
+function renderCompareConfigOptions() {
+  if (!compareConfigId) return;
+  const currentValue = compareConfigId.value || '0';
+  const options = ['<option value="0">No config</option>'];
+
+  state.configs
+    .slice()
+    .sort((left, right) => String(left.name || '').localeCompare(String(right.name || '')))
+    .forEach((config) => {
+      options.push(`<option value="${escapeHtml(String(config.id))}">${escapeHtml(config.name || '(Unnamed config)')}</option>`);
+    });
+
+  compareConfigId.innerHTML = options.join('');
+  compareConfigId.value = currentValue;
+  if (compareConfigId.value !== currentValue) {
+    compareConfigId.value = '0';
   }
 }
 
@@ -485,11 +543,13 @@ function renderFieldOptions() {
 
 function renderConfigRulesTable() {
   if (!configRulesBody) return;
+  const canEdit = hasCredentials();
+  const removeButtonAttributes = canEdit ? '' : ' disabled title="Enter username and password first"';
   if (!state.currentConfigRules.length) {
     configRulesBody.innerHTML = '<tr class="empty-row"><td colspan="3"><span class="empty-icon">&#8722;</span><strong>No fields selected yet</strong><span>Select a record type and field, then click Add field to config.</span></td></tr>';
     return;
   }
-  configRulesBody.innerHTML = state.currentConfigRules.map((rule, index) => `<tr><td>${escapeHtml(rule.recordType)}</td><td>${escapeHtml(rule.fieldName)}</td><td class="align-right"><button class="remove-rule" type="button" data-rule-index="${index}">Remove</button></td></tr>`).join('');
+  configRulesBody.innerHTML = state.currentConfigRules.map((rule, index) => `<tr><td>${escapeHtml(rule.recordType)}</td><td>${escapeHtml(rule.fieldName)}</td><td class="align-right"><button class="remove-rule" type="button" data-rule-index="${index}"${removeButtonAttributes}>Remove</button></td></tr>`).join('');
 }
 
 function renderConfigSelect() {
@@ -629,6 +689,7 @@ async function saveConfigRemote() {
 function initializeConfigEditor() {
   if (!configEditor) return;
   renderRecordTypeOptions();
+  renderCompareConfigOptions();
   renderConfigSelect();
   renderConfigRulesTable();
 
@@ -650,6 +711,12 @@ function initializeConfigEditor() {
   if (newConfigButton) newConfigButton.addEventListener('click', resetConfigEditor);
   if (addConfigRuleButton) addConfigRuleButton.addEventListener('click', addConfigRule);
   if (saveConfigButton) saveConfigButton.addEventListener('click', saveConfigRemote);
+  if (refreshCompareConfigs) {
+    refreshCompareConfigs.addEventListener('click', async () => {
+      await loadConfigsFromApi(true);
+      showMessage('Config list reloaded.', 'success');
+    });
+  }
   if (configRulesBody) {
     configRulesBody.addEventListener('click', (event) => {
       const removeButton = event.target.closest('.remove-rule');
@@ -702,7 +769,7 @@ function setTool(tool) {
   processResultsWrap.classList.toggle('hidden-pane', !processMode);
   resultsSection.classList.toggle('hidden-pane', !resultsMode);
   renderToolHelp(tool);
-  if (configMode && !state.configs.length) {
+  if ((configMode || resultsMode) && !state.configs.length) {
     loadConfigsFromApi(false);
   }
   updateActionAvailability();

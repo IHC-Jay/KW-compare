@@ -86,6 +86,7 @@ h2 { margin-bottom: 0; font-size: 30px; font-weight: normal; letter-spacing: -.0
 .results-controls { display: flex; align-items: center; gap: 16px; }
 .results-filter { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font: 12px Arial, sans-serif; }
 .results-filter input { margin: 0; accent-color: var(--teal); }
+.results-filter select { border: 1px solid var(--line); padding: 6px 8px; color: var(--ink); background: #fbfcfa; font: 12px Arial, sans-serif; }
 .result-count { color: var(--muted); font: 12px Arial, sans-serif; }
 .results-table-wrap { overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
 table { width: 100%; border-collapse: collapse; }

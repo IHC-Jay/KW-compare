@@ -13,7 +13,6 @@
         <span class="brand-mark">KW</span>
         <span>Compare</span>
       </a>
-      <div class="connection-pill" id="connectionState"><span class="status-dot"></span>Ready</div>
     </header>
 
     <section class="auth-bar" aria-label="IRIS authentication">
@@ -170,12 +169,13 @@
     <section class="results-section" id="resultsSection" aria-live="polite">
       <div class="results-heading">
         <div>
-          <p class="section-kicker">Latest activity</p>
           <h2>Comparison results</h2>
         </div>
         <div class="results-controls">
-          <button class="refresh-button" id="refreshRuns" type="button" disabled>Load previous runs &#8595;</button>
+          <label class="results-filter" for="compareConfigId"><span>Config</span><select id="compareConfigId" name="compareConfigId"><option value="0">No config</option></select></label>
+          <button class="refresh-button" id="refreshCompareConfigs" type="button" disabled>Load configs</button>
           <label class="results-filter" for="differencesOnly"><input id="differencesOnly" type="checkbox">Display files with differences only</label>
+          <button class="primary-button" id="refreshRuns" type="button" disabled>Display Results</button>
           <span class="result-count" id="resultCount">0 runs</span>
         </div>
       </div>
