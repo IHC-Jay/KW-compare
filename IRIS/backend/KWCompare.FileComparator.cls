@@ -223,7 +223,7 @@ ClassMethod SaveFieldDifferences(runID As %Integer, parentDifferenceID As %Integ
 
 ClassMethod SaveFieldDifference(runID As %Integer, parentDifferenceID As %Integer, differenceType As %String, recordType As %String, fieldName As %String, lineA As %Integer, lineB As %Integer, valueA As %String, valueB As %String) As %Status
 {
-    Set difference = ##class(KWCompare.CompareDifference).%New()
+    Set difference = ##class(IHC.ITF.KWCompare.CompareDifference).%New()
     Set difference.RunID = runID
     Set difference.ParentDifferenceID = parentDifferenceID
     Set difference.DifferenceType = differenceType

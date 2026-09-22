@@ -1,4 +1,4 @@
-const state = { mode: 'directories', rows: [], expandedRuns: new Set(), details: {} };
+const state = { mode: 'directories', rows: [], expandedRuns: new Set(), expandedLines: new Set(), details: {} };
 const $ = (selector) => document.querySelector(selector);
 
 const form = $('#compareForm');
@@ -119,6 +119,7 @@ async function loadPreviousRuns() {
       fileName: `${row.fileAName} vs ${row.fileBName}`,
       runID: row.runID,
       status: row.status,
+      totalDifferences: Number(row.totalDifferences || 0),
     }));
     console.info('[KW Compare] Previous runs for table:', state.rows);
     renderRows();
@@ -138,7 +139,7 @@ async function loadPreviousRuns() {
 function renderRows() {
   resultCount.textContent = `${state.rows.length} ${state.rows.length === 1 ? 'run' : 'runs'}`;
   if (!state.rows.length) {
-    resultsBody.innerHTML = '<tr class="empty-row"><td colspan="4"><span class="empty-icon">&#8722;</span><strong>No comparisons yet</strong><span>Run a comparison to see its matched files here.</span></td></tr>';
+    resultsBody.innerHTML = '<tr class="empty-row"><td colspan="5"><span class="empty-icon">&#8722;</span><strong>No comparisons yet</strong><span>Run a comparison to see its matched files here.</span></td></tr>';
     return;
   }
   resultsBody.innerHTML = state.rows.map((row) => `
@@ -146,25 +147,52 @@ function renderRows() {
       <td>${escapeHtml(row.fileName)}</td>
       <td>${escapeHtml(String(row.runID))}</td>
       <td><span class="status">${escapeHtml(row.status || 'Completed')}</span></td>
+      <td><span class="difference-status ${row.totalDifferences > 0 ? 'has-differences' : ''}">${escapeHtml(formatDifferenceStatus(row))}</span></td>
       <td class="align-right"><button class="open-run" data-run-id="${escapeHtml(String(row.runID))}">${state.expandedRuns.has(String(row.runID)) ? 'Hide' : 'View'} &#8594;</button></td>
     </tr>${state.expandedRuns.has(String(row.runID)) ? renderRunDetails(row.runID) : ''}`).join('');
+}
+
+function formatDifferenceStatus(row) {
+  if (String(row.status).toUpperCase() === 'FAILED') return 'Unavailable';
+  if (row.totalDifferences === undefined || row.totalDifferences === null) return 'Loading';
+  return row.totalDifferences > 0 ? `${row.totalDifferences} found` : 'None found';
+}
+
+async function loadRunSummary(runID) {
+  const base = normalizeBaseUrl();
+  const response = await fetch(`${base}/runs/${encodeURIComponent(runID)}`, { headers: getAuthHeaders() });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+  if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Run summary request failed'));
+  return data;
 }
 
 function renderRunDetails(runID) {
   const details = state.details[String(runID)];
   if (!details) {
-    return '<tr class="detail-row"><td colspan="4"><div class="detail-loading">Loading differences...</div></td></tr>';
+    return '<tr class="detail-row"><td colspan="5"><div class="detail-loading">Loading differences...</div></td></tr>';
   }
   if (!details.length) {
-    return '<tr class="detail-row"><td colspan="4"><div class="detail-empty">No differences found.</div></td></tr>';
+    return '<tr class="detail-row"><td colspan="5"><div class="detail-empty">No differences found.</div></td></tr>';
   }
-  return `<tr class="detail-row"><td colspan="4"><div class="difference-list">${details.map((difference) => {
+  return `<tr class="detail-row"><td colspan="5"><div class="difference-list">${details.map((difference) => {
+    const lineKey = `${runID}:${difference.id}`;
     const fields = difference.fields || [];
-    const fieldMarkup = fields.length
-      ? `<div class="field-differences">${fields.map((field) => `<div class="field-difference"><strong>${escapeHtml(field.fieldName || '')}</strong><span>${escapeHtml(String(field.fileAValue ?? '<missing>'))}</span><span>${escapeHtml(String(field.fileBValue ?? '<missing>'))}</span></div>`).join('')}</div>`
-      : `<div class="line-values"><div><span>File A</span><code>${escapeHtml(difference.fileAValue || '')}</code></div><div><span>File B</span><code>${escapeHtml(difference.fileBValue || '')}</code></div></div>`;
-    return `<article class="difference-item"><div class="difference-meta"><strong>Line ${escapeHtml(String(difference.fileALineNumber || difference.fileBLineNumber || ''))}</strong><span>${escapeHtml(difference.differenceType || 'CHANGED')}</span></div>${fieldMarkup}</article>`;
+    const lineExpanded = state.expandedLines.has(lineKey);
+    const fieldMarkup = lineExpanded ? (fields.length
+      ? `<div class="field-differences"><div class="field-header"><span>Field</span><span>File A</span><span>File B</span></div>${fields.map((field) => `<div class="field-difference"><strong>${escapeHtml(field.fieldName || '')}</strong><span class="${field.differenceType === 'MISSING_IN_A' ? 'missing-value' : ''}">${escapeHtml(formatFieldValue(field.fileAValue, field.differenceType === 'MISSING_IN_A'))}</span><span class="${field.differenceType === 'MISSING_IN_B' ? 'missing-value' : ''}">${escapeHtml(formatFieldValue(field.fileBValue, field.differenceType === 'MISSING_IN_B'))}</span></div>`).join('')}</div>`
+      : '<div class="detail-empty">No field-level records were captured for this line. Re-run the comparison after compiling the field-capture changes.</div>') : '';
+    return `<article class="difference-item"><button class="line-toggle ${lineExpanded ? 'is-expanded' : ''}" data-line-key="${escapeHtml(lineKey)}"><span>Line ${escapeHtml(String(difference.fileALineNumber || difference.fileBLineNumber || ''))}</span><span>${fields.length} field${fields.length === 1 ? '' : 's'} different</span><span>${lineExpanded ? 'Hide' : 'Show'} &#8594;</span></button>${fieldMarkup}</article>`;
   }).join('')}</div></td></tr>`;
+}
+
+function formatFieldValue(value, missing) {
+  if (missing || value === null || value === undefined) return '<missing>';
+  return String(value);
 }
 
 function escapeHtml(value) {
@@ -219,10 +247,16 @@ form.addEventListener('submit', async (event) => {
     }
     if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Comparison request failed'));
     if (state.mode === 'directories') {
-      state.rows = (data.results || []).map((row) => ({ fileName: row.fileName, runID: row.runID }));
+      state.rows = (data.results || []).map((row) => ({ fileName: row.fileName, runID: row.runID, totalDifferences: undefined }));
     } else {
-      state.rows = [{ fileName: sourceA.value.split(/[\\/]/).pop(), runID: data.runID }];
+      state.rows = [{ fileName: sourceA.value.split(/[\\/]/).pop(), runID: data.runID, totalDifferences: undefined }];
     }
+    const summaries = await Promise.all(state.rows.map((row) => loadRunSummary(row.runID)));
+    state.rows = state.rows.map((row, index) => ({
+      ...row,
+      status: summaries[index].status,
+      totalDifferences: Number(summaries[index].totalDifferences || 0),
+    }));
     renderRows();
     showMessage(`Comparison complete. ${state.rows.length} ${state.rows.length === 1 ? 'run was' : 'runs were'} recorded.`, 'success');
     connectionState.innerHTML = '<span class="status-dot"></span>Connected';
@@ -235,11 +269,20 @@ form.addEventListener('submit', async (event) => {
 });
 
 resultsBody.addEventListener('click', async (event) => {
+  const lineToggle = event.target.closest('.line-toggle');
+  if (lineToggle) {
+    const lineKey = lineToggle.dataset.lineKey;
+    if (state.expandedLines.has(lineKey)) state.expandedLines.delete(lineKey);
+    else state.expandedLines.add(lineKey);
+    renderRows();
+    return;
+  }
   const button = event.target.closest('.open-run');
   if (!button) return;
   const runID = String(button.dataset.runId);
   if (state.expandedRuns.has(runID)) {
     state.expandedRuns.delete(runID);
+    [...state.expandedLines].filter((key) => key.startsWith(`${runID}:`)).forEach((key) => state.expandedLines.delete(key));
     renderRows();
     return;
   }

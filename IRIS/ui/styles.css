@@ -70,6 +70,10 @@ td { padding: 18px; border-top: 1px solid var(--line); font: 14px Arial, sans-se
 .difference-list { padding: 4px 18px 18px 44px; border-left: 3px solid var(--yellow); }
 .difference-item { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .difference-item:last-child { border-bottom: 0; }
+.line-toggle { display: grid; grid-template-columns: 1fr auto auto; gap: 18px; width: 100%; border: 0; padding: 0 0 12px; color: var(--ink); background: transparent; text-align: left; font: 12px Arial, sans-serif; }
+.line-toggle span:nth-child(2) { color: var(--coral); font-size: 10px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
+.line-toggle span:last-child { color: var(--teal); font-weight: bold; }
+.line-toggle:hover span:first-child { color: var(--teal); }
 .difference-meta { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; font: 12px Arial, sans-serif; }
 .difference-meta span { color: var(--coral); font-size: 10px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
 .line-values { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -77,12 +81,17 @@ td { padding: 18px; border-top: 1px solid var(--line); font: 14px Arial, sans-se
 .line-values span { display: block; margin-bottom: 5px; color: var(--muted); font: bold 10px Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
 .line-values code { display: block; overflow: auto; padding: 10px; color: var(--ink); background: #fff; font: 12px/1.45 Consolas, monospace; white-space: pre-wrap; }
 .field-differences { display: grid; grid-template-columns: minmax(100px, .35fr) 1fr 1fr; gap: 0; border: 1px solid var(--line); background: #fff; }
+.field-header { display: contents; }
+.field-header span { padding: 9px 10px; color: var(--muted); background: #eef2ed; border-bottom: 1px solid var(--line); font: bold 10px Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
 .field-difference { display: contents; }
 .field-difference > * { padding: 9px 10px; border-bottom: 1px solid var(--line); font: 12px Arial, sans-serif; }
 .field-difference:last-child > * { border-bottom: 0; }
 .field-difference strong { color: var(--teal-dark); }
+.missing-value { color: var(--coral); font-style: italic; }
 .align-right { text-align: right; }
 .status { display: inline-block; padding: 5px 8px; color: var(--teal-dark); background: #dceee8; font-size: 10px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
+.difference-status { color: var(--teal-dark); font: bold 11px Arial, sans-serif; }
+.difference-status.has-differences { color: var(--coral); }
 .open-run { border: 0; padding: 0; color: var(--teal); background: transparent; font: bold 12px Arial, sans-serif; }
 .empty-row td { padding: 62px 20px; text-align: center; }
 .empty-row td span, .empty-row td strong { display: block; }
