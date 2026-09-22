@@ -266,6 +266,18 @@ async function loadPreviousRuns() {
   }
 }
 
+function clearResultsSummary() {
+  state.rows = [];
+  state.details = {};
+  state.expandedRuns.clear();
+  renderRows();
+}
+
+async function reloadResultsSummary() {
+  clearResultsSummary();
+  await loadPreviousRuns();
+}
+
 function renderRows() {
   const visibleRows = state.showDifferencesOnly
     ? state.rows.filter((row) => Number(row.totalDifferences || 0) > 0)
@@ -329,14 +341,22 @@ function renderRunDetails(runID) {
   const totalDifferences = Number(Array.isArray(detailState) ? details.length : (detailState.totalDifferences ?? details.length));
   const visibleDifferences = Number(Array.isArray(detailState) ? details.length : (detailState.visibleDifferences ?? details.length));
   const ignoredByConfig = Number(Array.isArray(detailState) ? 0 : (detailState.ignoredByConfig ?? Math.max(totalDifferences - visibleDifferences, 0)));
+  const ignoredFieldDetails = Array.isArray(detailState) ? [] : (detailState.ignoredFieldDetails || []);
+  const ignoredFieldsText = ignoredFieldDetails
+    .map((item) => `${String(item?.recordType || '').trim()}.${String(item?.fieldName || '').trim()}`)
+    .filter((item) => item !== '.')
+    .join(', ');
   const clarification = ignoredByConfig > 0
     ? `<div class="detail-loading">${escapeHtml(String(totalDifferences))} total • ${escapeHtml(String(ignoredByConfig))} ignored by config • ${escapeHtml(String(visibleDifferences))} shown</div>`
     : '';
+  const ignoredFieldMarkup = ignoredFieldsText
+    ? `<div class="detail-loading">Ignored fields: ${escapeHtml(ignoredFieldsText)}</div>`
+    : '';
   if (!details.length) {
     const emptyMessage = ignoredByConfig > 0 ? 'All differences for this run are ignored by the selected config.' : 'No differences found.';
-    return `<tr class="detail-row"><td colspan="4">${clarification}<div class="detail-empty">${escapeHtml(emptyMessage)}</div></td></tr>`;
+    return `<tr class="detail-row"><td colspan="4">${clarification}${ignoredFieldMarkup}<div class="detail-empty">${escapeHtml(emptyMessage)}</div></td></tr>`;
   }
-  return `<tr class="detail-row"><td colspan="4">${clarification}<div class="difference-list">${details.map((difference) => {
+  return `<tr class="detail-row"><td colspan="4">${clarification}${ignoredFieldMarkup}<div class="difference-list">${details.map((difference) => {
     const fields = difference.fields || [];
     const previewText = buildDifferencePreview(difference);
     const fieldMarkup = fields.length
@@ -787,7 +807,10 @@ function setTool(tool) {
 
 document.querySelectorAll('.tool-tab').forEach((button) => button.addEventListener('click', () => setTool(button.dataset.tool)));
 document.querySelectorAll('.mode-button').forEach((button) => button.addEventListener('click', () => setCompareMode(button.dataset.mode)));
-refreshRuns.addEventListener('click', loadPreviousRuns);
+refreshRuns.addEventListener('click', reloadResultsSummary);
+if (compareConfigId) {
+  compareConfigId.addEventListener('change', reloadResultsSummary);
+}
 differencesOnly.addEventListener('change', (event) => {
   state.showDifferencesOnly = event.target.checked;
   renderRows();
@@ -946,6 +969,7 @@ resultsBody.addEventListener('click', async (event) => {
       totalDifferences: data?.totalDifferences,
       visibleDifferences: data?.visibleDifferences,
       ignoredByConfig: data?.ignoredByConfig,
+      ignoredFieldDetailsCount: Array.isArray(data?.ignoredFieldDetails) ? data.ignoredFieldDetails.length : 0,
       differencesLength: Array.isArray(data?.differences) ? data.differences.length : 0,
     });
     if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Differences request failed'));
@@ -954,6 +978,7 @@ resultsBody.addEventListener('click', async (event) => {
       totalDifferences: Number(data.totalDifferences ?? data.count ?? 0),
       visibleDifferences: Number(data.visibleDifferences ?? data.count ?? 0),
       ignoredByConfig: Number(data.ignoredByConfig ?? 0),
+      ignoredFieldDetails: Array.isArray(data.ignoredFieldDetails) ? data.ignoredFieldDetails : [],
     };
     renderRows();
   } catch (error) {

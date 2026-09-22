@@ -123,6 +123,8 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
     }
 
     Set differences = []
+    Set ignoredFieldDetails = []
+    Kill ignoredSeen
     Set statement = ##class(%SQL.Statement).%New()
     
     Set status = statement.%Prepare("SELECT ID, DifferenceType, RecordType, FieldName, OccurrenceNumber, FileALineNumber, FileBLineNumber, RecordKey, FileAValue, FileBValue, Details FROM IHC_ITF_KWCompare.CompareDifference WHERE RunID = ? AND ParentDifferenceID IS NULL ORDER BY ID")
@@ -155,14 +157,23 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
         Set fieldResult = fieldStatement.%Execute(id, result.%Get("ID"))
         While fieldResult.%Next() {
             Set fieldName = fieldResult.%Get("FieldName")
-            If ignoredFields.%IsDefined(fieldName) {
+            Set fieldRecordType = $ZSTRIP(fieldResult.%Get("RecordType"), "<>W")
+            Set ignoredKey = $ZCONVERT(fieldRecordType, "U") _ "|" _ $ZCONVERT(fieldName, "U")
+            If ignoredFields.%IsDefined(ignoredKey) || ignoredFields.%IsDefined($ZCONVERT(fieldName, "U")) {
+                If '$Data(ignoredSeen(ignoredKey)) {
+                    Set ignoredSeen(ignoredKey) = 1
+                    Set ignoredField = {}
+                    Do ignoredField.%Set("recordType", fieldRecordType)
+                    Do ignoredField.%Set("fieldName", fieldName)
+                    Do ignoredFieldDetails.%Push(ignoredField)
+                }
                 Continue
             }
             Set field = {}
             set ^webService("KWCompare get next field") = fieldName
             Do field.%Set("id", fieldResult.%Get("ID"))
             Do field.%Set("differenceType", fieldResult.%Get("DifferenceType"))
-            Do field.%Set("recordType", fieldResult.%Get("RecordType"))
+            Do field.%Set("recordType", fieldRecordType)
             Do field.%Set("fieldName", fieldName)
             Do field.%Set("occurrenceNumber", fieldResult.%Get("OccurrenceNumber"))
             Do field.%Set("fileALineNumber", fieldResult.%Get("FileALineNumber"))
@@ -185,6 +196,7 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
     Do response.%Set("totalDifferences", totalDifferences)
     Do response.%Set("visibleDifferences", differences.%Size())
     Do response.%Set("ignoredByConfig", ignoredByConfig)
+    Do response.%Set("ignoredFieldDetails", ignoredFieldDetails)
     Do response.%Set("count", differences.%Size())
     Do response.%Set("differences", differences)
     Quit $$$OK
@@ -196,13 +208,22 @@ ClassMethod LoadIgnoredFields(configID As %Integer, ByRef ignoredFields As %Dyna
         Quit $$$OK
     }
     Set statement = ##class(%SQL.Statement).%New()
-    Set status = statement.%Prepare("SELECT FieldName FROM IHC_ITF_KWCompare.CompareConfigField WHERE ConfigID = ? AND IgnoreField = 1")
+    Set status = statement.%Prepare("SELECT RecordType, FieldName FROM IHC_ITF_KWCompare.CompareConfigField WHERE ConfigID = ? AND IgnoreField = 1")
     If $$$ISERR(status) {
         Quit status
     }
     Set result = statement.%Execute(configID)
     While result.%Next() {
-        Do ignoredFields.%Set(result.%Get("FieldName"), 1)
+        Set recordType = $ZSTRIP(result.%Get("RecordType"), "<>W")
+        Set fieldName = $ZSTRIP(result.%Get("FieldName"), "<>W")
+        If fieldName = "" {
+            Continue
+        }
+        Set key = $ZCONVERT(recordType, "U") _ "|" _ $ZCONVERT(fieldName, "U")
+        Do ignoredFields.%Set(key, 1)
+        If recordType = "" {
+            Do ignoredFields.%Set($ZCONVERT(fieldName, "U"), 1)
+        }
     }
     Quit $$$OK
 }
