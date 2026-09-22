@@ -34,6 +34,7 @@ const sourceA = $('#sourceA');
 const sourceB = $('#sourceB');
 const sourceALabel = $('#sourceALabel');
 const sourceBLabel = $('#sourceBLabel');
+const deleteExistingResults = $('#deleteExistingResults');
 const compareConfigId = $('#compareConfigId');
 const refreshCompareConfigs = $('#refreshCompareConfigs');
 const apiBase = $('#apiBase');
@@ -342,7 +343,9 @@ function renderRunDetails(runID) {
   const visibleDifferences = Number(Array.isArray(detailState) ? details.length : (detailState.visibleDifferences ?? details.length));
   const ignoredByConfig = Number(Array.isArray(detailState) ? 0 : (detailState.ignoredByConfig ?? Math.max(totalDifferences - visibleDifferences, 0)));
   const ignoredFieldDetails = Array.isArray(detailState) ? [] : (detailState.ignoredFieldDetails || []);
-  const ignoredFieldsText = ignoredFieldDetails
+  const ignoredConfigFields = Array.isArray(detailState) ? [] : (detailState.ignoredConfigFields || []);
+  const displayIgnoredFields = ignoredFieldDetails.length ? ignoredFieldDetails : ignoredConfigFields;
+  const ignoredFieldsText = displayIgnoredFields
     .map((item) => `${String(item?.recordType || '').trim()}.${String(item?.fieldName || '').trim()}`)
     .filter((item) => item !== '.')
     .join(', ');
@@ -351,7 +354,7 @@ function renderRunDetails(runID) {
     : '';
   const ignoredFieldMarkup = ignoredFieldsText
     ? `<div class="detail-loading">Ignored fields: ${escapeHtml(ignoredFieldsText)}</div>`
-    : '';
+    : (ignoredByConfig > 0 ? '<div class="detail-loading">Ignored fields: (details unavailable from service response)</div>' : '');
   if (!details.length) {
     const emptyMessage = ignoredByConfig > 0 ? 'All differences for this run are ignored by the selected config.' : 'No differences found.';
     return `<tr class="detail-row"><td colspan="4">${clarification}${ignoredFieldMarkup}<div class="detail-empty">${escapeHtml(emptyMessage)}</div></td></tr>`;
@@ -639,6 +642,30 @@ async function loadConfigToEditor(configID) {
   }
 }
 
+async function loadIgnoredFieldsForConfig(configID) {
+  if (!configID || !hasCredentials()) return [];
+  try {
+    const base = normalizeBaseUrl();
+    const response = await fetch(`${base}/configs/${encodeURIComponent(configID)}`, { headers: getAuthHeaders() });
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+    if (!response.ok) return [];
+    return (data.fields || [])
+      .filter((field) => Number(field.ignoreField ?? 1) === 1)
+      .map((field) => ({
+        recordType: String(field.recordType || '').trim(),
+        fieldName: String(field.fieldName || '').trim(),
+      }))
+      .filter((field) => field.fieldName !== '');
+  } catch {
+    return [];
+  }
+}
+
 function addConfigRule() {
   if (!configRecordType || !configFieldName) return;
   const recordType = configRecordType.value;
@@ -835,6 +862,7 @@ form.addEventListener('submit', async (event) => {
   const payload = {
     configID: 0,
     comparisonMode: 'LINE',
+    deleteExistingResults: deleteExistingResults?.checked ? 1 : 0,
   };
   payload[state.mode === 'directories' ? 'directoryA' : 'fileAPath'] = sourceA.value.trim();
   payload[state.mode === 'directories' ? 'directoryB' : 'fileBPath'] = sourceB.value.trim();
@@ -970,15 +998,24 @@ resultsBody.addEventListener('click', async (event) => {
       visibleDifferences: data?.visibleDifferences,
       ignoredByConfig: data?.ignoredByConfig,
       ignoredFieldDetailsCount: Array.isArray(data?.ignoredFieldDetails) ? data.ignoredFieldDetails.length : 0,
+      ignoredConfigFieldsCount: Array.isArray(data?.ignoredConfigFields) ? data.ignoredConfigFields.length : 0,
       differencesLength: Array.isArray(data?.differences) ? data.differences.length : 0,
     });
     if (!response.ok) throw new Error(getApiErrorMessage(response.status, data, 'Differences request failed'));
+
+    let ignoredConfigFields = Array.isArray(data.ignoredConfigFields) ? data.ignoredConfigFields : [];
+    const ignoredFieldDetails = Array.isArray(data.ignoredFieldDetails) ? data.ignoredFieldDetails : [];
+    if (!ignoredConfigFields.length && !ignoredFieldDetails.length && selectedConfigId > 0) {
+      ignoredConfigFields = await loadIgnoredFieldsForConfig(selectedConfigId);
+    }
+
     state.details[runID] = {
       differences: data.differences || [],
       totalDifferences: Number(data.totalDifferences ?? data.count ?? 0),
       visibleDifferences: Number(data.visibleDifferences ?? data.count ?? 0),
       ignoredByConfig: Number(data.ignoredByConfig ?? 0),
-      ignoredFieldDetails: Array.isArray(data.ignoredFieldDetails) ? data.ignoredFieldDetails : [],
+      ignoredFieldDetails,
+      ignoredConfigFields,
     };
     renderRows();
   } catch (error) {

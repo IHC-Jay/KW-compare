@@ -22,27 +22,33 @@ ClassMethod CompareDirectories(directoryA As %String, directoryB As %String, con
     Set results = []
     
     If ( (##class(%File).DirectoryExists(directoryA)) && (##class(%File).DirectoryExists(directoryB))) {
+	    set filePattern = "*"
     
-		Set tSC = ##class(%File).FileSetExecute(.tHandle, directoryA, "", "", 1, ",")
+		Set tSC = ##class(%File).FileSetExecute(.tHandle, directoryA, filePattern, "", 1, ",")
 
 		If $$$ISOK(tSC) {
 			
-			Set tAtEnd = 0
+			Set tAtEnd = 0, numFiles = 0
 			For {
+				
 				Set tSC = ##class(%File).FileSetFetch(.tHandle, .tRow, .tAtEnd)
 				set ^webService("FileComparator, from directory ") = tSC _", End: " _ tAtEnd _", entry: " _ tRow
-				If '$$$ISOK(tSC)!($ListLength(tRow)<6) Quit
+				If '$$$ISOK(tSC) !($ListLength(tRow)<6) Quit
 				set fileName = $List(tRow, 1)
 				set attr = ##class(%File).Attributes(fileName)
 			
 				if ( $BIT($FACTOR(attr),16) = 1) // Regular file
 				{
-				    set ^webService("FileComparator, file: ") = fileName
-                    Set fileBPath = directoryB _ "/" _ ##class(%File).GetFilename(fileName)
+				    set fNm = ##class(%File).GetFilename(fileName)
+                    Set fileBPath = directoryB _ "/" _ fNm
                     If ##class(%File).Exists(fileBPath) {
                         Set runID = ..CompareFiles(fileName, fileBPath, configID, comparisonMode)
-                        set ^webService("FileComparator, file: ") = fileName _", ID: " _ runID
-                        Do results.%Push({}.%Set("fileName",##class(%File).GetFilename(fileName), "runID",runID))
+                        Do $INCREMENT(numFiles)
+                        set ^webService("FileComparator, file: ") = numFiles _". " _ fileName _", ID: " _ runID
+                        Set field = {}
+                        Do field.%Set("fileName",fNm)
+                        Do field.%Set("runID",runID)
+                        Do results.%Push(field )
                     } Else {
                         set ^webService("FileComparator, missing pair") = fileBPath
                     }
@@ -79,10 +85,13 @@ ClassMethod CompareFiles(fileAPath As %String, fileBPath As %String, configID As
         Set config = ##class(IHC.ITF.KWCompare.CompareConfig).%OpenId(configID)
         If '$IsObject(config) {
 	        WRITE !, "Comparison configuration was not found: " _ configID
-            Throw ##class(%Exception.General).%New("Comparison configuration was not found")
+            set ^webService("FileComparator Comparison configuration") =  configID _ " was not found"
         }
-        WRITE !, "IHC.ITF.KWCompare.CompareConfig: " _ config.ConfigName
-        Set run.ConfigNameSnapshot = config.ConfigName
+        else
+        {
+        	WRITE !, "IHC.ITF.KWCompare.CompareConfig: " _ config.ConfigName
+        	Set run.ConfigNameSnapshot = config.ConfigName
+        }
     }
 
     Set status = run.%Save()

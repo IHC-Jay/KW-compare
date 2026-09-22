@@ -7,7 +7,15 @@ ClassMethod CompareFiles(request As %DynamicObject, ByRef response As %DynamicOb
     Set fileAPath = request.%Get("fileAPath", "")
     Set fileBPath = request.%Get("fileBPath", "")
     Set configID = request.%Get("configID", 0)
+    Set deleteExistingResults = +request.%Get("deleteExistingResults", 0)
     Set comparisonMode = request.%Get("comparisonMode", "LINE")
+
+    If deleteExistingResults=1 {
+        Set status = ..DeleteExistingResults()
+        If $$$ISERR(status) {
+            Quit status
+        }
+    }
 
     Set runID = ##class(IHC.ITF.KWCompare.FileComparator).CompareFiles(fileAPath, fileBPath, configID, comparisonMode)
     Set run = ##class(IHC.ITF.KWCompare.CompareRun).%OpenId(runID)
@@ -23,12 +31,70 @@ ClassMethod CompareDirectories(request As %DynamicObject, ByRef response As %Dyn
     Set directoryA = request.%Get("directoryA", "")
     Set directoryB = request.%Get("directoryB", "")
     Set configID = request.%Get("configID", 0)
+    Set deleteExistingResults = +request.%Get("deleteExistingResults", 0)
     Set comparisonMode = request.%Get("comparisonMode", "LINE")
+
+    If deleteExistingResults=1 {
+        Set status = ..DeleteExistingResults()
+        If $$$ISERR(status) {
+            Quit status
+        }
+    }
 
     Set results = ##class(IHC.ITF.KWCompare.FileComparator).CompareDirectories(directoryA, directoryB, configID, comparisonMode)
 
     Set response = {}.%Set("results",results, "count",results.%Size())
     set ^webService("KWCompare CompareDirectories Complete ") = results.%Size() _ " files @ " _ $ZDATETIME($HOROLOG, 3, 1, 6)
+    Quit $$$OK
+}
+
+ClassMethod DeleteExistingResults() As %Status
+{
+    set ^webService("KWCompare DeleteExistingResults") = "Start @ " _ $ZDATETIME($HOROLOG, 3, 1, 6)
+    TSTART
+
+    Set status = ..ExecuteDelete("DELETE FROM IHC_ITF_KWCompare.CompareDifference")
+    If $$$ISERR(status) {
+        TROLLBACK
+        Quit status
+    }
+
+    Set status = ..ExecuteDelete("DELETE FROM IHC_ITF_KWCompare.CompareOrderDifference")
+    If $$$ISERR(status) {
+        TROLLBACK
+        Quit status
+    }
+
+    Set status = ..ExecuteDelete("DELETE FROM IHC_ITF_KWCompare.CompareRunField")
+    If $$$ISERR(status) {
+        TROLLBACK
+        Quit status
+    }
+
+    Set status = ..ExecuteDelete("DELETE FROM IHC_ITF_KWCompare.CompareRun")
+    If $$$ISERR(status) {
+        TROLLBACK
+        Quit status
+    }
+
+    TCOMMIT
+    set ^webService("KWCompare DeleteExistingResults") = "Completed @ " _ $ZDATETIME($HOROLOG, 3, 1, 6)
+    Quit $$$OK
+}
+
+ClassMethod ExecuteDelete(sql As %String) As %Status
+{
+    Set statement = ##class(%SQL.Statement).%New()
+    Set status = statement.%Prepare(sql)
+    If $$$ISERR(status) {
+        set ^webService("KWCompare DeleteExistingResults Error") = "Prepare failed: " _ sql
+        Quit status
+    }
+    Set result = statement.%Execute()
+    If result.%SQLCODE '= 0 {
+        set ^webService("KWCompare DeleteExistingResults Error") = "Execute failed: " _ sql _ " SQLCODE=" _ result.%SQLCODE
+        Quit $$$ERROR($$$GeneralError)
+    }
     Quit $$$OK
 }
 
@@ -121,6 +187,11 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
     If $$$ISERR(status) {
         Quit status
     }
+    Set ignoredConfigFields = []
+    Set status = ..LoadIgnoredFieldDetails(selectedConfigID, .ignoredConfigFields)
+    If $$$ISERR(status) {
+        Quit status
+    }
 
     Set differences = []
     Set ignoredFieldDetails = []
@@ -197,6 +268,7 @@ ClassMethod GetDifferences(id As %Integer, ByRef response As %DynamicObject, con
     Do response.%Set("visibleDifferences", differences.%Size())
     Do response.%Set("ignoredByConfig", ignoredByConfig)
     Do response.%Set("ignoredFieldDetails", ignoredFieldDetails)
+    Do response.%Set("ignoredConfigFields", ignoredConfigFields)
     Do response.%Set("count", differences.%Size())
     Do response.%Set("differences", differences)
     Quit $$$OK
@@ -224,6 +296,27 @@ ClassMethod LoadIgnoredFields(configID As %Integer, ByRef ignoredFields As %Dyna
         If recordType = "" {
             Do ignoredFields.%Set($ZCONVERT(fieldName, "U"), 1)
         }
+    }
+    Quit $$$OK
+}
+
+ClassMethod LoadIgnoredFieldDetails(configID As %Integer, ByRef ignoredConfigFields As %DynamicArray) As %Status
+{
+    Set ignoredConfigFields = []
+    If configID = 0 {
+        Quit $$$OK
+    }
+    Set statement = ##class(%SQL.Statement).%New()
+    Set status = statement.%Prepare("SELECT RecordType, FieldName FROM IHC_ITF_KWCompare.CompareConfigField WHERE ConfigID = ? AND IgnoreField = 1 ORDER BY RecordType, FieldName")
+    If $$$ISERR(status) {
+        Quit status
+    }
+    Set result = statement.%Execute(configID)
+    While result.%Next() {
+        Set field = {}
+        Do field.%Set("recordType", $ZSTRIP(result.%Get("RecordType"), "<>W"))
+        Do field.%Set("fieldName", $ZSTRIP(result.%Get("FieldName"), "<>W"))
+        Do ignoredConfigFields.%Push(field)
     }
     Quit $$$OK
 }
