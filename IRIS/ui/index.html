@@ -19,6 +19,11 @@
       <div>
         <p class="section-kicker">Connection</p>
         <strong>Authenticate with IRIS</strong>
+        <div class="environment-switch" role="radiogroup" aria-label="Backend environment">
+          <label><input type="radio" name="environment" value="DEV" checked> DEV</label>
+          <label><input type="radio" name="environment" value="QA"> QA</label>
+          <label><input type="radio" name="environment" value="UAT"> UAT</label>
+        </div>
       </div>
       <div class="auth-fields">
         <label class="compact-field">
@@ -63,7 +68,7 @@
         <div class="form-footer">
           <label class="api-field">
             <span>IRIS API base URL</span>
-            <input id="apiBase" name="apiBase" value="/api" autocomplete="url">
+            <input id="apiBase" name="apiBase" value="/api-dev" autocomplete="url">
           </label>
           <label class="results-filter" for="deleteExistingResults">
             <input id="deleteExistingResults" type="checkbox">
@@ -95,7 +100,7 @@
         <div class="form-footer">
           <label class="api-field">
             <span>IRIS API base URL</span>
-            <input id="apiBaseProcess" value="/api" autocomplete="url">
+            <input id="apiBaseProcess" value="/api-dev" autocomplete="url">
           </label>
           <button class="primary-button" type="submit" disabled><span>Process X12 files</span><span class="button-arrow">&#8594;</span></button>
         </div>

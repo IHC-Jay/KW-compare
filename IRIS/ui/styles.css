@@ -23,6 +23,9 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .topbar { border-bottom: 1px solid var(--line); padding-bottom: 20px; }
 .auth-bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 18px; padding: 14px 18px; border: 1px solid var(--line); background: rgba(255, 255, 255, .72); }
 .auth-bar strong { font: normal 17px Georgia, serif; }
+.environment-switch { display: inline-flex; gap: 14px; margin-top: 10px; color: var(--muted); font: 12px Arial, sans-serif; }
+.environment-switch label { display: inline-flex; gap: 6px; align-items: center; }
+.environment-switch input { margin: 0; accent-color: var(--teal); }
 .auth-fields { display: flex; align-items: flex-end; gap: 12px; }
 .compact-field { display: flex; flex-direction: column; gap: 6px; }
 .compact-field span { color: var(--muted); font: bold 10px Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
